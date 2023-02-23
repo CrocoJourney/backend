@@ -131,3 +131,7 @@ dmypy.json
 .vscode/
 .idea/
 .pytest_cache/
+
+# ignorer tout les photos de profil sauf la photo de profil par défaut
+app/static/pictures/*
+!app/static/pictures/default.png

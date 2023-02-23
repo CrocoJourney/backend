@@ -1,5 +1,8 @@
 from fastapi.testclient import TestClient
+import pytest
+from tortoise import Tortoise
 from app.main import app
+from app.models.user import User
 
 # les tests utilisent le module pytest, a toi de configurer ton environnement de dev pour l'utiliser
 # pour vscode Antonin peut t'aider
@@ -7,8 +10,26 @@ from app.main import app
 client = TestClient(app)
 
 
-# test que l'app est bien accessible
+async def init_db():
+    await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.models.user", "app.models.group",
+                        "app.models.city", "app.models.trip"]})
+    await Tortoise.generate_schemas()
+
+
+async def close_db():
+    await Tortoise.close_connections()
+
+
 def test_root():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+@pytest.mark.asyncio
+async def test_async():
+    await init_db()
+    await User.create(password="test", mail="mail.mail.com", hash="aaa", salt="haaaaaash", firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user = await User.get_or_none(mail="mail.mail.com")
+    assert user is not None
+    await close_db()

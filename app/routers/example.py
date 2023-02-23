@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
+from models.user import UserInToken
+from utils.tokens import get_user_in_token
 # Ce fichier contient des examples de routes utiles pour le projet
 # il sera agremente au fur et a mesure
 
@@ -26,8 +28,14 @@ async def hello(lang: str = Query(..., min_length=2, max_length=2, regex="^(fr|e
         return {"message": "Hello"}
 
 
+# route nécessitant une authentification
+@router.post("/secure")
+async def secure(user: UserInToken = Depends(get_user_in_token)):
+    return {"message": "information secrète !"}
+
+
 # attention a l'ordre des routes car fastapi va prendre la premiere route qui match
 # on met donc les routes avec path params en dernier
-@router.get("/{name}")
+@ router.get("/{name}")
 async def helloPathParam(name: str):
     return {"message": f"Hello {name}"}

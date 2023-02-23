@@ -1,6 +1,9 @@
 # backend
 FastAPI
 Tortoise
+Redis
+PostgreSQL
+Docker
 
 # Requis
 ## Généralités
@@ -35,3 +38,16 @@ Example avec VSCode fichier settings.json dans le dossier .vscode:
     "python.testing.pytestEnabled": true
 }
 ```
+
+## Lancement de l'application pour le développement
+Pour lancer l'application il faut se placer dans le dossier app et lancer la commande suivante:
+```bash
+uvicorn main:app --reload
+```
+## Lancement de l'application pour le déploiement ou l'utilisation par l'équipe front-end
+Un fichier docker-compose est fourni pour lancer l'application dans un container docker.
+Pour lancer l'application il faut se placer à la racine du projet et lancer la commande suivante:
+```bash
+docker-compose up -d
+```
+> attention pour fonctionner l'application a besoin de variables d'environnement, elles peuvent être renseignées dans un fichier .env à la racine du projet

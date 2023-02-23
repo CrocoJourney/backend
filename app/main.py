@@ -1,20 +1,30 @@
-import datetime
-from fastapi import Depends, FastAPI, Response
+from routers import auth, users
+from tortoise.contrib.fastapi import register_tortoise
+from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from uvicorn import run
 from routers import example
-from fastapi.security import OAuth2PasswordRequestForm
-from redis import Redis
+from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
+from utils.db import DB_URL
 
-from fastapi import HTTPException
 
 tags_metadata = [
     {
+        "name": "auth",
+        "description": "routes d'authentification",
+    },
+    {
+        "name": "users",
+        "description": "routes pour les utilisateurs",
+    },
+    {
         "name": "example",
         "description": "routes d'exemple",
-    }
+    },
 ]
+
+
 app = FastAPI(
     title="CrocoJourney API",
     description="API pour le site CrocoJourney",
@@ -26,10 +36,26 @@ app = FastAPI(
     openapi_tags=tags_metadata
 )
 
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+@app.on_event("startup")
+async def startup():
+    pass
+
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+current_dir = Path(__file__).parent
+app.mount('/static', StaticFiles(directory='static'), name='static')
 
 # importe les routes de l'application
 app.include_router(example.router, prefix="/example", tags=["example"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(users.router, prefix="/users", tags=["users"])
 
 
 @app.get("/")
@@ -42,14 +68,11 @@ async def root():
 async def health():
     return {"status": "ok"}
 
-
-def create_refresh_token():
-    refresh_token = jwt.encode({"exp": datetime.utcnow() + datetime.timedelta(
-        minutes=REFRESH_TOKEN_EXPIRE_MINUTES)}, SECRET_KEY, algorithm=ALGORITHM)
-    return refresh_token
-
-
-# permet de lancer le serveur avec python app/main.py pour le dev
-# en prod on utilisera gunicorn
-if __name__ == '__main__':
-    run(app, host='127.0.0.1', port=8000)
+register_tortoise(
+    app,
+    db_url=DB_URL,
+    modules={"models": ["models.user", "models.group",
+                        "models.city", "models.trip", "models.ban", "models.notification", "models.review"]},
+    generate_schemas=True,
+    add_exception_handlers=True,
+)
