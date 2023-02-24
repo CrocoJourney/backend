@@ -24,6 +24,10 @@ jobs:
 
       - name: Start services
         run: docker-compose -f "docker-compose.action.yml" up -d
+      
+      - name: show docker state
+        run: |
+          docker ps
 
       - name: download wait-for-it.sh
         run: |
