@@ -70,4 +70,4 @@ jobs:
           MAIL_SERVER: ${{ secrets.MAIL_SERVER }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
         run: |
-          pytest
+          pytest tests

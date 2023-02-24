@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, Query
-from models.user import UserInToken
-from utils.tokens import get_user_in_token
+from app.models.user import UserInToken
+from app.utils.tokens import get_user_in_token
 # Ce fichier contient des examples de routes utiles pour le projet
 # il sera agremente au fur et a mesure
 

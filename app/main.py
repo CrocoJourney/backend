@@ -1,12 +1,12 @@
-from routers import auth, users
+from app.routers import auth, users
 from tortoise.contrib.fastapi import register_tortoise
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from routers import example
+from app.routers import example
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
-from utils.db import DB_URL
+from app.utils.db import DB_URL
 
 
 tags_metadata = [
@@ -50,7 +50,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 current_dir = Path(__file__).parent
-app.mount('/static', StaticFiles(directory='static'), name='static')
+app.mount('/static', StaticFiles(directory='app/static'), name='static')
 
 # importe les routes de l'application
 app.include_router(example.router, prefix="/example", tags=["example"])
@@ -71,8 +71,8 @@ async def health():
 register_tortoise(
     app,
     db_url=DB_URL,
-    modules={"models": ["models.user", "models.group",
-                        "models.city", "models.trip", "models.ban", "models.notification", "models.review"]},
+    modules={"models": ["app.models.user", "app.models.group",
+                        "app.models.city", "app.models.trip", "app.models.ban", "app.models.notification", "app.models.review"]},
     generate_schemas=True,
     add_exception_handlers=True,
 )

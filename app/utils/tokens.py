@@ -1,7 +1,7 @@
-from utils.customscheme import CustomOAuth2PasswordBearer
+from app.utils.customscheme import CustomOAuth2PasswordBearer
 import time
 from pydantic import parse_obj_as
-from models.user import UserInToken
+from app.models.user import UserInToken
 from redis.asyncio.client import Redis
 from datetime import timedelta, datetime
 import os
@@ -11,7 +11,7 @@ import jwt
 from passlib.context import CryptContext
 from fastapi.security import HTTPBearer
 
-from utils.db import get_redis
+from app.utils.db import get_redis
 
 load_dotenv()
 

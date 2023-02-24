@@ -2,11 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import parse_obj_as
 from redis.asyncio.client import Redis
-from utils.tokens import check_refresh_token
-from utils.tokens import get_data
-from utils.db import get_redis
-from utils.tokens import UserInToken, generate_tokens, invalidate_refresh_token
-from models.user import User
+from app.utils.tokens import check_refresh_token
+from app.utils.tokens import get_data
+from app.utils.db import get_redis
+from app.utils.tokens import UserInToken, generate_tokens, invalidate_refresh_token
+from app.models.user import User
 
 router = APIRouter()
 

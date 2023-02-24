@@ -8,8 +8,6 @@ MAIL_USERNAME = os.getenv("MAIL_USERNAME")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 MAIL_SERVER = os.getenv("MAIL_SERVER")
 
-templates = Jinja2Templates(directory="static/templates")
-
 conf = ConnectionConfig(
     MAIL_USERNAME=MAIL_USERNAME,
     MAIL_PASSWORD=MAIL_PASSWORD,
@@ -21,7 +19,7 @@ conf = ConnectionConfig(
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
     VALIDATE_CERTS=False,
-    TEMPLATE_FOLDER="static/templates",
+    TEMPLATE_FOLDER="app/static/templates",
 )
 
 
