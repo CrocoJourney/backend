@@ -36,11 +36,11 @@ jobs:
 
       - name: Get postgres IP
         run: |
-          echo "POSTGRES_HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' croco-postgres-1)" >> $GITHUB_ENV
+          echo "POSTGRES_HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' croco_postgres_1)" >> $GITHUB_ENV
 
       - name: Get redis IP
         run: |
-          echo "REDIS_HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' croco-redis-1)" >> $GITHUB_ENV
+          echo "REDIS_HOST=$(docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' croco_redis_1)" >> $GITHUB_ENV
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v3
