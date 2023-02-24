@@ -40,9 +40,9 @@ Example avec VSCode fichier settings.json dans le dossier .vscode:
 ```
 
 ## Lancement de l'application pour le développement
-Pour lancer l'application il faut se placer dans le dossier app et lancer la commande suivante:
+Pour lancer l'application il faut se placer à la racine du projet et lancer la commande suivante:
 ```bash
-uvicorn main:app --reload
+uvicorn app.main:app --reload --forwarded-allow-ips="*"
 ```
 ## Lancement de l'application pour le déploiement ou l'utilisation par l'équipe front-end
 Un fichier docker-compose est fourni pour lancer l'application dans un container docker.

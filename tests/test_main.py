@@ -12,7 +12,7 @@ client = TestClient(app)
 
 async def init_db():
     await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.models.user", "app.models.group",
-                        "app.models.city", "app.models.trip"]})
+                        "app.models.city", "app.models.trip", "app.models.ban", "app.models.notification", "app.models.review"]})
     await Tortoise.generate_schemas()
 
 
