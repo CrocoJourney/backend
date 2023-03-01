@@ -1,10 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import parse_obj_as
-from app.models.user import UserInFront
+from app.models.user import UserInFront, UserInToken
 from app.models.user import UserInRegister, User
 from tortoise.exceptions import IntegrityError
 from app.utils.mail import sendWelcomeMail
 import aiofiles
+
+from app.utils.tokens import get_user_in_token
 router = APIRouter()
 
 
@@ -50,7 +52,13 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
         raise HTTPException(status_code=400, detail="Email already registered")
 
 
-@ router.get("/")
+@router.get("/")
 async def get_users():
     users = await User.all()
     return parse_obj_as(list[UserInFront], users)
+
+
+@router.get("/me")
+async def get_user(user: UserInToken = Depends(get_user_in_token)):
+    user = await User.get(id=user.id)
+    return parse_obj_as(UserInFront, user)
