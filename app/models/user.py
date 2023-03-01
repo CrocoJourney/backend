@@ -33,6 +33,8 @@ UserInToken = pydantic_model_creator(
     User, name="UserInToken", include=["id", "admin"])
 UserInFront = pydantic_model_creator(
     User, name="UserInFront", exclude=["hash", "phonenumber"])
+UserInFrontWithPhone = pydantic_model_creator(
+    User, name="UserInFrontWithPhone", exclude=["hash"])
 
 
 class UserInRegister(BaseModel):

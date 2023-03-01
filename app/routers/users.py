@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import parse_obj_as
-from app.models.user import UserInFront, UserInToken
+from app.models.user import UserInFront, UserInFrontWithPhone, UserInToken
 from app.models.user import UserInRegister, User
 from tortoise.exceptions import IntegrityError
 from app.utils.mail import sendWelcomeMail
@@ -61,4 +61,5 @@ async def get_users():
 @router.get("/me")
 async def get_user(user: UserInToken = Depends(get_user_in_token)):
     user = await User.get(id=user.id)
-    return parse_obj_as(UserInFront, user)
+    # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
+    return parse_obj_as(UserInFrontWithPhone, user)
