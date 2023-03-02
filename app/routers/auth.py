@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, HTTPException
+from fastapi import APIRouter, Body, Depends, Form, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import parse_obj_as
 from redis.asyncio.client import Redis
@@ -32,7 +32,7 @@ async def logout(refresh_token: str, redis: Redis = Depends(get_redis)):
 
 # permet de rafraichir le token d'accès en utilisant le refresh token ce dernier est aussi renouvelé car il est à usage unique
 @router.post("/refresh")
-async def refresh(refresh_token: str, redis: Redis = Depends(get_redis)):
+async def refresh(refresh_token: str = Body(embed=True), redis: Redis = Depends(get_redis)):
     # on vérifie que le refresh token est valide
     if not await check_refresh_token(refresh_token, redis):
         raise HTTPException(status_code=401, detail="Invalid refresh token")
