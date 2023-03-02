@@ -1,3 +1,6 @@
+import base64
+import random
+import secrets
 from app.utils.customscheme import CustomOAuth2PasswordBearer
 import time
 from pydantic import parse_obj_as
@@ -21,6 +24,7 @@ ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 jours
+RESET_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 heures
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -77,7 +81,6 @@ async def generate_tokens(user: UserInToken, redis: Redis) -> dict:
 
 
 async def ban_access_token(token: str, redis: Redis) -> None:
-    await redis.sadd("banned_tokens", token)
     expiration_time = int(time.time()) + ACCESS_TOKEN_EXPIRE_MINUTES*60
     # On ajoute le token banni avec son expiration time
     await redis.zadd("zbanned_tokens", {token: expiration_time})
@@ -93,7 +96,9 @@ async def remove_expired_banned_tokens(redis: Redis) -> None:
 
 async def is_access_token_banned(token: str) -> bool:
     redis = await get_redis()
-    return await redis.sismember("banned_tokens", token)
+    if await redis.zrank("zbanned_tokens", token) is not None:
+        return True
+    return False
 
 
 async def is_admin(token: str = Depends(bearer_scheme)) -> bool:
@@ -109,3 +114,21 @@ async def get_user_in_token(token: str = Depends(bearer_scheme)) -> dict:
 async def admin_required(token: str = Depends(bearer_scheme)) -> None:
     if not await is_admin(token):
         raise HTTPException(status_code=403, detail="Admin required")
+
+
+async def generate_reset_token() -> str:
+    redis = await get_redis()
+    token = secrets.token_urlsafe(256)
+    redis.zadd("zreset_tokens", {token: int(
+        time.time()) + RESET_TOKEN_EXPIRE_MINUTES*60})
+    return token
+
+
+async def is_reset_token_valid(token: str, redis: Redis) -> bool:
+    if await redis.zrank("zreset_tokens", token) is not None:
+        return True
+    return False
+
+
+async def remove_expired_reset_tokens(redis: Redis) -> None:
+    await redis.zremrangebyscore("zreset_tokens", 0, time.time())

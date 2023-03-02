@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Form, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import parse_obj_as
 from redis.asyncio.client import Redis
 from app.utils.tokens import check_refresh_token
 from app.utils.tokens import get_data
 from app.utils.db import get_redis
-from app.utils.tokens import UserInToken, generate_tokens, invalidate_refresh_token
+from app.utils.tokens import UserInToken, generate_tokens, invalidate_refresh_token, generate_reset_token
 from app.models.user import User
+from app.utils.mail import sendResetLink
 
 router = APIRouter()
 
@@ -47,3 +48,15 @@ async def refresh(refresh_token: str, redis: Redis = Depends(get_redis)):
     await invalidate_refresh_token(refresh_token, redis)
     # on génère un nouveau refresh token et un nouveau token d'accès
     return await generate_tokens(user, redis)
+
+
+@router.post("/reset")
+async def reset_password(mail: str = Form(...), redis: Redis = Depends(get_redis)):
+    # on cherche l'utilisateur dans la base de données
+    user = await User.get_or_none(mail=mail)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # on génère un token de réinitialisation stocké dans redis
+    token = generate_reset_token()
+    # on envoye le token par mail
+    await sendResetLink(user.mail, user.firstname, user.lastname, token)
