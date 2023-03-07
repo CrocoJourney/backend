@@ -38,7 +38,6 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
                                    confirmPassword=confirmPassword, phonenumber=phonenumber, car=car, sex=sex, mailNotification=mailNotification)
         # on crée l'utilisateur dans la base de données
         user = User(**form_data.dict())
-        user.dict(exclude_unset=True)
         # on hash le mot de passe pour le stocker en base de données
         user.hash = user.get_password_hash(form_data.password)
         if photo is not None:
