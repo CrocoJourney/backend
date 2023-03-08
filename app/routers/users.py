@@ -2,7 +2,7 @@ import hashlib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel, ValidationError, parse_obj_as
 from app.models.user import UserInFront, UserInFrontWithPhone, UserInToken
-from app.models.user import UserInRegister, User
+from app.models.user import UserInRegister, User, UserInUpdate
 from tortoise.exceptions import IntegrityError
 from app.utils.mail import sendWelcomeMail
 import aiofiles
@@ -99,3 +99,59 @@ async def get_user(user: UserInToken = Depends(get_user_in_token)):
     user = await User.get(id=user.id)
     # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
     return parse_obj_as(UserInFrontWithPhone, user)
+
+
+@router.patch("/me")
+async def update(patchedUser: UserInUpdate, user: UserInToken = Depends(get_user_in_token)):
+    try:
+        userInDatabase = await User.get_or_none(id=user.id)
+        if userInDatabase is None:
+            raise HTTPException(status_code=404, detail="User does not exists")
+        updated_data: dict = patchedUser.dict(exclude_unset=True)
+
+        # Si le mot de passe est renseigné et valide, on le transforme en Hash.
+        if updated_data['password'] is not None:
+            updated_data.pop('confirmPassword')
+            hash = userInDatabase.get_password_hash(updated_data['password'])
+            updated_data.pop('password')
+            updated_data['hash'] = hash
+
+        userInDatabase = await userInDatabase.update_from_dict(updated_data)
+        await userInDatabase.save()
+        return {"message": "ok"}
+    except IntegrityError as e:
+        print(e)
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+
+@router.post("/me/profilePicture")
+async def updateProfilePhoto(photo: UploadFile = File(..., media_type=["image/png", "image/jpeg"], description="Photo de profil"), user: UserInToken = Depends(get_user_in_token)
+                             ):
+    # On récupère l'utilisateur dans la BDD
+    user = await User.get_or_none(id=user.id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+
+    # recupere l'extension du fichier
+    extension = photo.filename.split(".")[-1]
+    # on vérifie que l'extension est valide
+    if extension not in ["png", "jpg", "jpeg", "gif"]:
+        raise HTTPException(
+            status_code=400, detail="Invalid file extension")
+    # on lit le contenu du fichier
+    content = await photo.read()
+    # on vérifie que le fichier fait moins de 2Mio
+    if len(content) > 2 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400, detail="Image too big (max 2Mio)")
+    # on génère un hash du contenu de l'image pour éviter les doublons
+    hash = hashlib.sha256(content).hexdigest()
+    photo.filename = f"{hash}.{extension}"
+    # on sauvegarde l'image de profil dans le dossier static de manière asynchrone
+    async with aiofiles.open(f"app/static/pictures/{photo.filename}", "wb") as buffer:
+        await buffer.write(content)
+    # on met à jour le chemin de l'image de profil dans la base de données
+    user.photoPath = photo.filename
+
+    await user.save()
+    return {"message": "ok"}

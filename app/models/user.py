@@ -48,6 +48,51 @@ class UserInRegister(BaseModel):
     sex: str = Field(..., example="H", description="H or F")
     mailNotification: bool = True
 
+
+    @validator("sex")
+    def sex_validator(cls, v):
+        if v not in ["H", "F"]:
+            raise ValueError("Sex must be H or F")
+        return v
+
+    @validator("password")
+    def password_validator(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        return v
+
+    @validator("phonenumber")
+    def phonenumber_validator(cls, v):
+        if len(v) != 10:
+            raise ValueError("Phone number must be 10 digits")
+        return v
+
+    @validator("mail")
+    def mail_validator(cls, v):
+        if re.match(r"([A-Za-z0-9]+[.-_])*[A-Za-z0-9]+@[A-Za-z0-9-]+(\.[A-Z|a-z]{2,})+", v) is None:
+            raise ValueError("Invalid email")
+        return v
+
+    @root_validator
+    def check_passwords_match(cls, values):
+        password = values.get("password")
+        confirmPassword = values.get("confirmPassword")
+        if password != confirmPassword:
+            raise ValueError("Passwords do not match")
+        return values
+
+
+class UserInUpdate(BaseModel):
+    mail: str | None = None
+    password: str | None = None
+    confirmPassword: str | None = None
+    firstname: str | None = None
+    lastname: str | None = None
+    phonenumber: str | None = None
+    car: bool | None = None
+    sex: str | None = None
+    mailNotification: bool | None = None
+
     @validator("sex")
     def sex_validator(cls, v):
         if v not in ["H", "F"]:
