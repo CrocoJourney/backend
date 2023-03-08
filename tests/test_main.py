@@ -29,7 +29,24 @@ def test_root():
 @pytest.mark.asyncio
 async def test_async():
     await init_db()
-    await User.create(password="test", mail="mail.mail.com", hash="aaa", salt="haaaaaash", firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user = User(password="test", mail="mail.mail.com", salt="haaaaaash",
+                firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user.hash = user.get_password_hash("motdepasse")
+    await user.save()
     user = await User.get_or_none(mail="mail.mail.com")
     assert user is not None
+    await close_db()
+
+
+@pytest.mark.asyncio
+async def test_login():
+    await init_db()
+    user = User(password="test", mail="mail.mail.com", salt="haaaaaash",
+                firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user.hash = user.get_password_hash("motdepasse")
+    await user.save()
+    response = client.post(
+        "/auth/login", data={"username": "mail.mail.com", "password": "motdepasse"}, headers={"Content-Type": "application/x-www-form-urlencoded"})
+    assert response.status_code == 200
+    print(response.json())
     await close_db()
