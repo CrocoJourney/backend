@@ -1,6 +1,6 @@
 import hashlib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from pydantic import BaseModel, parse_obj_as
+from pydantic import BaseModel, ValidationError, parse_obj_as
 from app.models.user import UserInFront, UserInFrontWithPhone, UserInToken
 from app.models.user import UserInRegister, User
 from tortoise.exceptions import IntegrityError
@@ -76,6 +76,8 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
     except IntegrityError as e:
         print(e)
         raise HTTPException(status_code=400, detail="Email already registered")
+    except ValidationError as e:
+        raise HTTPException(status_code=400, detail=e.errors()[0]["msg"])
 
 
 @router.get("/")
