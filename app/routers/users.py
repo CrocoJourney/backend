@@ -84,6 +84,14 @@ async def get_users():
     return parse_obj_as(list[UserInFront], users)
 
 
+@router.delete("/{id}")
+async def delete_user(id: int, user: UserInToken = Depends(get_user_in_token)):
+    if user.id != id and user.admin is False:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await User.filter(id=id).delete()
+    return {"message": "ok"}
+
+
 @router.get("/me")
 async def get_user(user: UserInToken = Depends(get_user_in_token)):
     user = await User.get(id=user.id)
