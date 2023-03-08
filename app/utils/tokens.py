@@ -1,6 +1,3 @@
-import base64
-import random
-import secrets
 from app.utils.customscheme import CustomOAuth2PasswordBearer
 import time
 from pydantic import parse_obj_as
@@ -12,7 +9,6 @@ from dotenv import load_dotenv
 from fastapi import Depends, HTTPException
 import jwt
 from passlib.context import CryptContext
-from fastapi.security import HTTPBearer
 
 from app.utils.db import get_redis
 
@@ -24,7 +20,7 @@ ALGORITHM = "HS256"
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 30  # 30 minutes
 REFRESH_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # 7 jours
-RESET_TOKEN_EXPIRE_MINUTES = 60 * 24  # 24 heures
+RESET_TOKEN_EXPIRE_MINUTES = 60 * 1  # 1 heure
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -116,18 +112,27 @@ async def admin_required(token: str = Depends(bearer_scheme)) -> None:
         raise HTTPException(status_code=403, detail="Admin required")
 
 
-async def generate_reset_token() -> str:
+async def generate_reset_token(user_id: int) -> str:
     redis = await get_redis()
-    token = secrets.token_urlsafe(256)
-    redis.zadd("zreset_tokens", {token: int(
+    data = {"id": user_id}
+    token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    await redis.zadd("zreset_tokens", {token: int(
         time.time()) + RESET_TOKEN_EXPIRE_MINUTES*60})
     return token
 
 
-async def is_reset_token_valid(token: str, redis: Redis) -> bool:
+async def is_reset_token_valid(token: str) -> int | None:
+    redis = await get_redis()
+    await remove_expired_reset_tokens(redis)
     if await redis.zrank("zreset_tokens", token) is not None:
-        return True
-    return False
+        return jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM]).get("id")
+    return None
+
+
+async def remove_reset_token(token: str) -> None:
+    redis = await get_redis()
+    await redis.zrem("zreset_tokens", token)
+    await remove_expired_reset_tokens(redis)
 
 
 async def remove_expired_reset_tokens(redis: Redis) -> None:

@@ -1,8 +1,9 @@
+from tortoise import transactions
 from fastapi import APIRouter, Body, Depends, Form, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import parse_obj_as
 from redis.asyncio.client import Redis
-from app.utils.tokens import check_refresh_token
+from app.utils.tokens import check_refresh_token, is_reset_token_valid, remove_reset_token
 from app.utils.tokens import get_data
 from app.utils.db import get_redis
 from app.utils.tokens import UserInToken, generate_tokens, invalidate_refresh_token, generate_reset_token
@@ -51,12 +52,32 @@ async def refresh(refresh_token: str = Body(embed=True), redis: Redis = Depends(
 
 
 @router.post("/reset")
-async def reset_password(mail: str = Form(...), redis: Redis = Depends(get_redis)):
+async def reset_password(mail: str = Body(embed=True)):
     # on cherche l'utilisateur dans la base de données
     user = await User.get_or_none(mail=mail)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     # on génère un token de réinitialisation stocké dans redis
-    token = generate_reset_token()
+    token = await generate_reset_token(user.id)
     # on envoye le token par mail
-    await sendResetLink(user.mail, user.firstname, user.lastname, token)
+    await sendResetLink(user.mail, token, user.firstname, user.lastname)
+    return {"message": "ok"}
+
+
+@transactions.atomic()
+@router.patch("/reset")
+async def reset_password(token: str = Body(embed=True), password: str = Body(embed=True)):
+    # on récupère l'id de l'utilisateur stocké dans le token
+    id = await is_reset_token_valid(token)
+    if not id:
+        raise HTTPException(status_code=404, detail="Invalid token")
+    # on récupère l'utilisateur dans la base de données
+    user = await User.get_or_none(id=id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # on met à jour le mot de passe de l'utilisateur
+    user.hash = user.get_password_hash(password)
+    await user.save()
+    # on supprime le token de redis
+    await remove_reset_token(token)
+    return {"message": "ok"}
