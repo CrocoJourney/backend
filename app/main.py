@@ -1,4 +1,4 @@
-from app.routers import auth, users
+from app.routers import auth, trips, users
 from tortoise.contrib.fastapi import register_tortoise
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -56,6 +56,7 @@ app.mount('/static', StaticFiles(directory='app/static'), name='static')
 app.include_router(example.router, prefix="/example", tags=["example"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
+app.include_router(trips.router, prefix="/trips", tags=["trips"])
 
 
 @app.get("/")
