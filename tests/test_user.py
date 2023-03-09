@@ -162,19 +162,14 @@ async def test_update_user_profile_photo():
 
     # Test de modification des différents champs de l'utilisateur.
     # -> Demande de modification de la photo de profil.
-    response = client.patch("/users/me",
-                            json={"firstname": "japon",
-                                  "lastname": "modifié"}
-                            )
+    files = [("photo", open('./tests/test2.png', 'rb'))]
+
+    response = client.post(
+        "/users/me/profilePicture",
+        files=files
+        )
 
     print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
-
-    # -> Vérification des modifications apportées.
-    response = client.get("/users/")
-    print(response.json())
-    firstnamechanged = response.json()[0]['firstname'] == 'japon'
-    lastnamechanged = response.json()[0]['lastname'] == 'modifié'
-    assert firstnamechanged and lastnamechanged, "No changes occurred !"
 
     await close_db()
