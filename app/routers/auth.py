@@ -27,7 +27,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), redis: Redis =
 # permet de se déconnecter proprement en invalidant le refresh token
 @router.post("/logout")
 async def logout(refresh_token: str = Body(embed=True), redis: Redis = Depends(get_redis)):
-    invalidate_refresh_token(refresh_token, redis)
+    await invalidate_refresh_token(refresh_token, redis)
     return {"message": "ok"}
 
 
