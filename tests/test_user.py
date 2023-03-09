@@ -2,7 +2,7 @@ from .test_main import init_db, close_db, client, User
 import pytest
 
 
-def registerUser():
+async def registerUser():
     files = [("photo", open('./tests/test.jpg', 'rb'))]
     data = {
         "firstname": "jesuis",
@@ -17,7 +17,7 @@ def registerUser():
     }
 
     response = client.post("/users/", data=data, files=files)
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
 
@@ -26,11 +26,11 @@ async def test_register():
     await init_db()
 
     # Inscription du nouvel utilisateur.
-    registerUser()
+    await registerUser()
 
     # Vérification de l'inscription de l'utilisateur.
     response = client.get("/users/")
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()
@@ -40,7 +40,7 @@ async def test_register():
 async def test_login():
     await init_db()
     # Inscription du nouvel utilisateur.
-    registerUser()
+    await registerUser()
     # Connexion de l'utilisateur.
     response = client.post(
         "/auth/login",
@@ -48,9 +48,43 @@ async def test_login():
               "password": "jesuisunmotdepasse"},
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200
     await close_db()
+
+
+@pytest.mark.asyncio
+async def test_delete_own_user():
+    await init_db()
+    # Création de l'utilisateur.
+    await registerUser()
+
+    # Connexion en tant qu'utilisateur à supprimer.
+    response = client.post(
+        "/auth/login",
+        data={"username": "chpchoupinou@gmail.com",
+              "password": "jesuisunmotdepasse"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    tokens = response.json()
+    access_token = tokens["access_token"]
+    client.headers["x-crocojourney-authorization"] = f"Bearer {access_token}"
+
+    # Demande de suppression de l'utilisateur.
+    response = client.delete(
+        "/users/1",
+    )
+
+    # print("Server response : " + str(response.json))
+    assert response.status_code == 200, "Request was not successful !"
+
+    # Confirmation de la suppression de l'utilisateur.
+    response = client.get("/users/")
+    # print("Server response : " + str(response.json()))
+    assert response.json() == []
+
+    await close_db()
+
 
 
 @pytest.mark.asyncio
@@ -58,7 +92,7 @@ async def test_update_user_profile_password():
     await init_db()
 
     # Création de l'utilisateur
-    registerUser()
+    await registerUser()
 
     # Connexion en tant qu'utilisateur de test.
     response = client.post(
@@ -79,7 +113,7 @@ async def test_update_user_profile_password():
                                   "confirmPassword": "newPasswordLol"}
                             )
 
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # -> Vérification des modifications apportées.
@@ -89,7 +123,7 @@ async def test_update_user_profile_password():
         json={"refresh_token": refresh_token}
     )
 
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # --> Reconnexion de l'utilisateur.
@@ -100,7 +134,7 @@ async def test_update_user_profile_password():
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
 
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()
@@ -110,7 +144,7 @@ async def test_update_user_profile_password():
 async def test_update_user_profile_infos():
     await init_db()
     # Création de l'utilisateur
-    registerUser()
+    await registerUser()
 
     # Connexion en tant qu'utilisateur de test.
     response = client.post(
@@ -130,24 +164,24 @@ async def test_update_user_profile_infos():
                                   "lastname": "modifié"}
                             )
 
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # -> Vérification des modifications apportées.
     response = client.get("/users/")
-    print(response.json())
     firstnamechanged = response.json()[0]['firstname'] == 'japon'
     lastnamechanged = response.json()[0]['lastname'] == 'modifié'
     assert firstnamechanged and lastnamechanged, "No changes occurred !"
 
     await close_db()
 
+
 @pytest.mark.asyncio
 async def test_update_user_profile_photo():
     pass
     await init_db()
     # Création de l'utilisateur
-    registerUser()
+    await registerUser()
 
     # Connexion en tant qu'utilisateur de test.
     response = client.post(
@@ -167,9 +201,9 @@ async def test_update_user_profile_photo():
     response = client.post(
         "/users/me/profilePicture",
         files=files
-        )
+    )
 
-    print("Server response : " + str(response.json))
+    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()
