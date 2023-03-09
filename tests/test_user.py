@@ -86,7 +86,6 @@ async def test_delete_own_user():
     await close_db()
 
 
-
 @pytest.mark.asyncio
 async def test_update_user_profile_password():
     await init_db()
@@ -167,8 +166,8 @@ async def test_update_user_profile_infos():
                                   "car": "False",
                                   "sex": "F",
                                   "mailNotification": "False"
-                            }
-    )
+                                  }
+                            )
 
     # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
@@ -183,14 +182,10 @@ async def test_update_user_profile_infos():
     sex_changed = response.json()['sex'] == 'F'
     car_changed = response.json()['car'] == False
     mailNotification_changed = response.json()['mailNotification'] == False
-    
+
     # print("Server response : " + str(response.json()))
-    assert firstname_changed and lastname_changed and mail_changed and tel_changed and sex_changed and car_changed and mailNotification_changed , "Changes did not occurr !"
+    assert firstname_changed and lastname_changed and mail_changed and tel_changed and sex_changed and car_changed and mailNotification_changed, "Changes did not occurr !"
     await close_db()
-
-
-
-
 
 
 @pytest.mark.asyncio
