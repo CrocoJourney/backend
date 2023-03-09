@@ -1,4 +1,4 @@
-from .test_main import init_db, close_db, client, User
+from .test_main import init_db, close_db, client
 import pytest
 
 
@@ -161,19 +161,36 @@ async def test_update_user_profile_infos():
     # -> Demande de modification du nom et prénom.
     response = client.patch("/users/me",
                             json={"firstname": "japon",
-                                  "lastname": "modifié"}
-                            )
+                                  "lastname": "modifié",
+                                  "mail": "maisonmarc7@gmail.com",
+                                  "phonenumber": "0000000000",
+                                  "car": "False",
+                                  "sex": "F",
+                                  "mailNotification": "False"
+                            }
+    )
 
     # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
-    # -> Vérification des modifications apportées.
-    response = client.get("/users/")
-    firstnamechanged = response.json()[0]['firstname'] == 'japon'
-    lastnamechanged = response.json()[0]['lastname'] == 'modifié'
-    assert firstnamechanged and lastnamechanged, "No changes occurred !"
+    # --> Vérification des modifications apportées.
+    response = client.get("/users/me")
 
+    firstname_changed = response.json()['firstname'] == 'japon'
+    lastname_changed = response.json()['lastname'] == 'modifié'
+    mail_changed = response.json()['mail'] == 'maisonmarc7@gmail.com'
+    tel_changed = response.json()['phonenumber'] == '0000000000'
+    sex_changed = response.json()['sex'] == 'F'
+    car_changed = response.json()['car'] == False
+    mailNotification_changed = response.json()['mailNotification'] == False
+    
+    # print("Server response : " + str(response.json()))
+    assert firstname_changed and lastname_changed and mail_changed and tel_changed and sex_changed and car_changed and mailNotification_changed , "Changes did not occurr !"
     await close_db()
+
+
+
+
 
 
 @pytest.mark.asyncio
