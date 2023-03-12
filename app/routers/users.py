@@ -110,7 +110,7 @@ async def update(patchedUser: UserInUpdate, user: UserInToken = Depends(get_user
         updated_data: dict = patchedUser.dict(exclude_unset=True)
 
         # Si le mot de passe est renseigné et valide, on le transforme en Hash.
-        if updated_data['password'] is not None:
+        if 'password' in updated_data and updated_data['password'] is not None:
             updated_data.pop('confirmPassword')
             hash = userInDatabase.get_password_hash(updated_data['password'])
             updated_data.pop('password')
