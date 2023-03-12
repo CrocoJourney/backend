@@ -57,3 +57,15 @@ async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in
         trip.steps = steps
     await trip.save()
     return trip
+
+
+@router.delete("/{trip_id}")
+async def delete_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)):
+    # supprime le trajet et ses étapes
+    trip = await Trip.get_or_none(id=trip_id)
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    if trip.driver_id != user.id and user.admin is False:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await trip.delete()
+    return {"message": "trip deleted"}
