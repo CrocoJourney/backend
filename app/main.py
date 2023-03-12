@@ -1,3 +1,5 @@
+from tortoise import Tortoise
+from app.models.city import City
 from app.routers import auth, trips, users
 from tortoise.contrib.fastapi import register_tortoise
 from fastapi import FastAPI
@@ -17,6 +19,10 @@ tags_metadata = [
     {
         "name": "users",
         "description": "routes pour les utilisateurs",
+    },
+    {
+        "name": "trips",
+        "description": "routes sur les trajets",
     },
     {
         "name": "example",
@@ -39,7 +45,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    pass
+    # wait for tortoise to be ready
+    await Tortoise.init(
+        db_url=DB_URL,
+        modules={"models": ["app.models.user", "app.models.group",
+                            "app.models.city", "app.models.trip", "app.models.ban", "app.models.notification", "app.models.review"]},
+    )
+    await Tortoise.generate_schemas()
+    # drop table city
+    await City.loadJSON("app/static/communes.json")
 
 
 app.add_middleware(
@@ -68,6 +82,8 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+Tortoise.init_models(["app.models.user", "app.models.group"], "models")
 
 register_tortoise(
     app,
