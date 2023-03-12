@@ -43,3 +43,17 @@ async def get_trips(departure: int, arrival: int, date: date = None, user: UserI
     conn = Tortoise.get_connection("default")
     trips = await conn.execute_query_dict(query, values=[departure, arrival, date])
     return trips
+
+
+@router.post("/")
+async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
+    driver = await User.get_or_none(id=user.id)
+    if driver is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+    trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
+                price=data.price, private=data.private, group=data.group, departure_id=data.departure, arrival_id=data.arrival, date=data.date)
+    if data.steps is not None:
+        steps = [Step(**step) for step in data.steps]
+        trip.steps = steps
+    await trip.save()
+    return trip

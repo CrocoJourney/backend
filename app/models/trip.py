@@ -1,3 +1,4 @@
+from datetime import datetime
 from tortoise.models import Model
 from tortoise import fields
 from pydantic import BaseModel
@@ -50,8 +51,8 @@ class TripInPost(BaseModel):
     precisions: str
     price: float
     private: bool
-    steps: list[StepInPost]
+    steps: list[StepInPost] | None
     departure: int
     group: int | None
     arrival: int
-    date: str
+    date: datetime
