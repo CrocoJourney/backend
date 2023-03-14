@@ -1,3 +1,4 @@
+from app.models.user import UserInFront
 from datetime import datetime
 from tortoise.models import Model
 from tortoise import fields
@@ -22,7 +23,8 @@ class Trip(Model):
     private = fields.BooleanField(default=False)
     passengers = fields.ManyToManyField(
         "models.User", related_name="trips_as_passenger")
-    candidate = fields.ManyToManyField("models.User", related_name="candidate")
+    candidates = fields.ManyToManyField(
+        "models.User", related_name="candidate")
 
     class Meta:
         table = "trip"
@@ -37,6 +39,7 @@ class Step(Model):
     class Meta:
         table = "step"
         unique_together = ("trip", "order")
+        ordering = ["order"]
 
 
 class StepInPost(BaseModel):

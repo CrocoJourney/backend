@@ -1,10 +1,12 @@
+from pydantic import parse_obj_as
+from tortoise import transactions
 from datetime import date
 import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.trip import Step, Trip, TripInPost
 from tortoise import Tortoise
 
-from app.models.user import User, UserInToken
+from app.models.user import User, UserInFront, UserInToken
 from app.utils.tokens import get_user_in_token
 router = APIRouter()
 
@@ -45,6 +47,42 @@ async def get_trips(departure: int, arrival: int, date: date = None, user: UserI
     return trips
 
 
+@router.get("/{trip_id}")
+async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)):
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related(
+        "steps__city", "driver", "passengers", "candidates", "departure", "arrival", "group__friends")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    userInDB = await User.get_or_none(id=user.id)
+    if trip.private is True and trip.driver.id != user.id and userInDB not in trip.group.friends and user.admin is False:
+        raise HTTPException(
+            status_code=403, detail="You are not allowed to see this trip")
+    passengers = [parse_obj_as(UserInFront, passenger)
+                  for passenger in trip.passengers]
+    candidates = [parse_obj_as(UserInFront, candidate)
+                  for candidate in trip.candidates]
+    # tortoise to pydantic
+    steps = [step.city for step in trip.steps]
+    return {
+        "id": trip.id,
+        "title": trip.title,
+        "date": trip.date,
+        "size": trip.size,
+        "constraints": trip.constraints,
+        "precisions": trip.precisions,
+        "price": trip.price,
+        "private": trip.private,
+        "departure": trip.departure,
+        "arrival": trip.arrival,
+        "steps": steps,
+        "driver": parse_obj_as(UserInFront, trip.driver),
+        "private": trip.private,
+        "group": trip.group.id if trip.private is True else None,
+        "passengers": passengers,
+        "candidates": candidates,
+    }
+
+
 @router.post("/")
 async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
@@ -69,3 +107,24 @@ async def delete_trip(trip_id: int, user: UserInToken = Depends(get_user_in_toke
         raise HTTPException(status_code=403, detail="Forbidden")
     await trip.delete()
     return {"message": "trip deleted"}
+
+
+@router.post("/{trip_id}/accept/{passenger_id}")
+@transactions.atomic()
+async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
+    userInDB = await User.get_or_none(id=user.id)
+    passengerInDB = await User.get_or_none(id=passenger_id)
+    if userInDB is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("passengers", "candidates")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    if trip.driver_id != user.id:
+        raise HTTPException(
+            status_code=403, detail="Forbidden this is not your trip")
+    if passengerInDB not in trip.passengers:
+        raise HTTPException(
+            status_code=404, detail="Passenger doesn't request this trip")
+    await trip.passengers.add(passengerInDB)
+    await trip.candidates.remove(passengerInDB)
+    return {"message": "ok"}
