@@ -13,13 +13,13 @@ router = APIRouter()
 
 
 @router.get("/", description="Date au format YYYY-MM-DD")
-async def get_trips(departure: int, arrival: int, date: date = None, user: UserInToken = Depends(get_user_in_token)):
+async def get_trips(departure: str, arrival: str, date: date = None, user: UserInToken = Depends(get_user_in_token)):
     # trouve les trajets qui passe par la ville de départ et d'arrivée dans le bon sens ou qui ont directement la ville de départ et d'arrivée
     if date is None:
         date = datetime.date.today()
     query = """
-        SELECT trip.id as id,title,date,size,price,d.id as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
-        FROM trip inner join city a on a.id = trip.arrival_id inner join city d on d.id = trip.departure_id
+        SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+        FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
         WHERE date::date = ($3) and (trip.id IN (
             SELECT trip_id
             FROM step
@@ -121,6 +121,31 @@ async def delete_trip(trip_id: int, user: UserInToken = Depends(get_user_in_toke
     return {"message": "trip deleted"}
 
 
+@router.post("/{trip_id}/join")
+async def join_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)):
+    # ajoute l'utilisateur au trajet
+    userInDB = await User.get_or_none(id=user.id)
+    if userInDB is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("group__friends", "passengers", "candidates")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    if trip.driver_id == user.id:
+        raise HTTPException(
+            status_code=403, detail="Forbidden this is your trip")
+    if trip.private is True and user.id not in trip.group.friends:
+        raise HTTPException(
+            status_code=403, detail="Forbidden this trip is private and you are not in the group")
+    if trip.size == len(trip.passengers):
+        raise HTTPException(
+            status_code=403, detail="Forbidden this trip is full")
+    if userInDB in trip.passengers or userInDB in trip.candidates:
+        raise HTTPException(
+            status_code=403, detail="Forbidden you are already in this trip")
+    await trip.candidates.add(userInDB)
+    return {"message": "ok"}
+
+
 @router.post("/{trip_id}/accept/{passenger_id}")
 @transactions.atomic()
 async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
@@ -138,5 +163,28 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
         raise HTTPException(
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.passengers.add(passengerInDB)
+    await trip.candidates.remove(passengerInDB)
+    return {"message": "ok"}
+
+
+@router.post("/{trip_id}/refuse/{passenger_id}")
+@transactions.atomic()
+async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
+    userInDB = await User.get_or_none(id=user.id)
+    passengerInDB = await User.get_or_none(id=passenger_id)
+    if userInDB is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+    if passengerInDB is None:
+        raise HTTPException(
+            status_code=404, detail="Passenger does not exists")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("passengers", "candidates")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    if trip.driver_id != user.id and user.admin is False:
+        raise HTTPException(
+            status_code=403, detail="Forbidden this is not your trip")
+    if passengerInDB not in trip.candidates:
+        raise HTTPException(
+            status_code=404, detail="Passenger doesn't request this trip")
     await trip.candidates.remove(passengerInDB)
     return {"message": "ok"}
