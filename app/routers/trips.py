@@ -1,9 +1,8 @@
 from pydantic import parse_obj_as
 from tortoise import transactions
-from datetime import date
-import datetime
+from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
-from app.models.trip import Step, Trip, TripInPost
+from app.models.trip import Step, Trip, TripInPost, TripInPostModify
 from tortoise import Tortoise
 
 from app.models.user import User, UserInFront, UserInToken
@@ -187,4 +186,36 @@ async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
         raise HTTPException(
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.candidates.remove(passengerInDB)
+    return {"message": "ok"}
+
+
+@router.patch("/{trip_id}", description="Modification du trajet designé par trip_id")
+async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = Depends(get_user_in_token)):
+    userInDB = await User.get_or_none(id=user.id)
+    if userInDB is None:
+        raise HTTPException(status_code=404, detail="User does not exists")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("steps__city", "driver", "passengers", "candidates", "departure", "arrival", "group__friends")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip does not exists")
+    if userInDB.id != trip.driver:
+        raise HTTPException(
+            status_code=403, detail="Forbidden this is not your trip")
+
+    # Début des vérifications :
+    currentDatePlus24h = datetime.now() + timedelta(hours=24)
+    # -> Vérification : Si le trajet est dans moins de 24h, on refuse toute modification.
+    if (currentDatePlus24h.astimezone() >= trip.date):
+        raise HTTPException(status_code=403, detail="Trip is in less than 24h")
+
+    # -> Vérification : La date de départ modifiée ne doit pas être ramenée à moins de 24h après la date actuelle.
+    if (data.date is not None):
+        if (currentDatePlus24h.astimezone() >= data.date):
+            raise HTTPException(
+                status_code=403, detail="New date makes trip depart in less than 24h")
+
+    # Modification du trajet :
+    updated_data: dict = data.dict(exclude_unset=True)
+    trip = await trip.update_from_dict(updated_data)
+    await trip.save()
+
     return {"message": "ok"}

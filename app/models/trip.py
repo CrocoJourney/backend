@@ -62,3 +62,17 @@ class TripInPost(BaseModel):
     group: int | None
     arrival: str
     date: datetime
+
+
+class TripInPostModify(BaseModel):
+    title: str | None = None
+    size: int | None = None
+    constraints: str | None = None
+    precisions: str | None = None
+    price: float | None = None
+    private: bool | None = None
+    steps: list[StepInPost] | None
+    departure: int | None = None
+    group: int | None
+    arrival: int | None = None
+    date: datetime | None = None
