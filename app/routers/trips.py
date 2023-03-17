@@ -7,6 +7,7 @@ from app.models.trip import Step, Trip, TripInPost
 from tortoise import Tortoise
 
 from app.models.user import User, UserInFront, UserInToken
+from app.models.group import Group
 from app.utils.tokens import get_user_in_token
 router = APIRouter()
 
@@ -84,16 +85,27 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
 
 
 @router.post("/")
+@transactions.atomic()
 async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
     if driver is None:
         raise HTTPException(status_code=404, detail="User does not exists")
     trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
                 price=data.price, private=data.private, group=data.group, departure_id=data.departure, arrival_id=data.arrival, date=data.date)
-    if data.steps is not None:
-        steps = [Step(**step) for step in data.steps]
-        trip.steps = steps
+    if data.private is True:
+        group = await Group.get_or_none(id=data.group)
+        if group is None:
+            raise HTTPException(
+                status_code=404, detail="Group does not exists")
+        if group.owner_id != user.id and user.admin is False:
+            raise HTTPException(
+                status_code=403, detail="You are not allowed to create this trip")
+    else:
+        trip.group = None
     await trip.save()
+    if data.steps is not None:
+        for step in data.steps:
+            await Step.create(trip=trip, city_id=step.city_id, order=step.order)
     return trip
 
 
@@ -122,7 +134,7 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
     if trip.driver_id != user.id:
         raise HTTPException(
             status_code=403, detail="Forbidden this is not your trip")
-    if passengerInDB not in trip.passengers:
+    if passengerInDB not in trip.candidates:
         raise HTTPException(
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.passengers.add(passengerInDB)

@@ -13,8 +13,10 @@ class Trip(Model):
         "models.User", related_name="trips_as_driver")
     date = fields.DatetimeField()
     size = fields.IntField()
-    departure = fields.ForeignKeyField("models.City", related_name="departure")
-    arrival = fields.ForeignKeyField("models.City", related_name="arrival")
+    departure = fields.ForeignKeyField(
+        "models.City", related_name="departure", to_field="code")
+    arrival = fields.ForeignKeyField(
+        "models.City", related_name="arrival", to_field="code")
     constraints = fields.CharField(max_length=512)
     precisions = fields.CharField(max_length=512)
     price = fields.DecimalField(max_digits=5, decimal_places=2)
@@ -33,7 +35,8 @@ class Trip(Model):
 class Step(Model):
     id = fields.IntField(pk=True)
     trip = fields.ForeignKeyField("models.Trip", related_name="steps")
-    city = fields.ForeignKeyField("models.City", related_name="trips")
+    city = fields.ForeignKeyField(
+        "models.City", related_name="trips", to_field="code")
     order = fields.IntField()
 
     class Meta:
@@ -43,7 +46,7 @@ class Step(Model):
 
 
 class StepInPost(BaseModel):
-    city_id: int
+    city_id: str
     order: int
 
 
@@ -55,7 +58,7 @@ class TripInPost(BaseModel):
     price: float
     private: bool
     steps: list[StepInPost] | None
-    departure: int
+    departure: str
     group: int | None
-    arrival: int
+    arrival: str
     date: datetime
