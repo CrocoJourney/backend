@@ -193,29 +193,66 @@ async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
 async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = Depends(get_user_in_token)):
     userInDB = await User.get_or_none(id=user.id)
     if userInDB is None:
-        raise HTTPException(status_code=404, detail="User does not exists")
+        raise HTTPException(status_code=404, detail="User does not exists.")
     trip = await Trip.get_or_none(id=trip_id).prefetch_related("steps__city", "driver", "passengers", "candidates", "departure", "arrival", "group__friends")
     if trip is None:
-        raise HTTPException(status_code=404, detail="Trip does not exists")
-    if userInDB.id != trip.driver:
+        raise HTTPException(status_code=404, detail="Trip does not exists.")
+    if user.id != trip.driver.id:
         raise HTTPException(
-            status_code=403, detail="Forbidden this is not your trip")
+            status_code=403, detail="Forbidden this is not your trip.")
 
     # Début des vérifications :
     currentDatePlus24h = datetime.now() + timedelta(hours=24)
     # -> Vérification : Si le trajet est dans moins de 24h, on refuse toute modification.
     if (currentDatePlus24h.astimezone() >= trip.date):
-        raise HTTPException(status_code=403, detail="Trip is in less than 24h")
+        raise HTTPException(
+            status_code=403, detail="Trip is in less than 24h.")
 
     # -> Vérification : La date de départ modifiée ne doit pas être ramenée à moins de 24h après la date actuelle.
     if (data.date is not None):
         if (currentDatePlus24h.astimezone() >= data.date):
             raise HTTPException(
-                status_code=403, detail="New date makes trip depart in less than 24h")
+                status_code=403, detail="New date makes trip depart in less than 24h.")
+
+    # -> Vérification : Si les étapes du trajet ont été modifiées, on fait attention !
+    if (data.steps is not None):
+        # On supprime les anciennes étapes :
+        steps_before = Step.get_or_none(trip=trip.id)
+        for s in steps_before:
+            await s.delete()
+
+        # On écrase les anciennes Etapes par les nouvelles Etapes renseignées :
+        for s in data.steps:
+            await Step.create(trip=trip.id, order=s.order, city_id=s.city_id)
+
+        data.steps.pop()
+    # -> Vérification : Si le groupe est marqué comme privé et que le trajet précédent n'est pas déjà privé,
+    #  on vérifie que l'ID du groupe est renseigné et valide.
+    if (data.private is not None and data.private and not trip.private):
+        # Si pas de group_id donné :
+        if (data.group_id is None):
+            raise HTTPException(
+                status_code=400, detail="Trip made private but group_id has not been specified.")
+        group = await Group.get_or_none(id=data.group_id)
+        # Si l'ID du groupe ne correspond à aucun groupe :
+        if (group is None):
+            raise HTTPException(
+                status_code=404, detail="Group provided does not exists.")
+        # Si le groupe désigné n'appartient pas à l'utilisateur :
+        if (group.owner != user.id):
+            raise HTTPException(
+                status_code=403, detail="User is not the owner of the group specified.")
+
+    # -> Vérification : Si le nombre de participants du trajet est modifié,
+    #  on vérifie que le nombre de places est compatible avec le nombre de personnes acceptées à bord.
+    if (data.size is not None):
+        passengersAccepted = len(trip.passengers)
+        if data.size < passengersAccepted:
+            raise HTTPException(
+                status_code=403, detail="There are more passengers than places left in this configuration.")
 
     # Modification du trajet :
-    updated_data: dict = data.dict(exclude_unset=True)
-    trip = await trip.update_from_dict(updated_data)
+    trip = await trip.update_from_dict(data.dict(exclude_unset=True))
     await trip.save()
 
     return {"message": "ok"}
