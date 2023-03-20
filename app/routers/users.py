@@ -78,12 +78,10 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
         try:
             await sendWelcomeMail(user.mail, user.firstname, user.lastname)
         except ConnectionErrors as e:
-            print("ERROR:   Erreur lors de la connection au serveur de mail")
             raise HTTPException(
                 status_code=500, detail="Internal server error, please contact an administrator")
         return {"message": "ok"}
     except IntegrityError as e:
-        print(e)
         raise HTTPException(status_code=400, detail="Email already registered")
     except ValidationError as e:
         raise HTTPException(status_code=400, detail=e.errors()[0]["msg"])

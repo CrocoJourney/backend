@@ -91,7 +91,7 @@ async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in
     if driver is None:
         raise HTTPException(status_code=404, detail="User does not exists")
     trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
-                price=data.price, private=data.private, group=data.group, departure_id=data.departure, arrival_id=data.arrival, date=data.date)
+                price=data.price, private=data.private, group_id=data.group, departure_id=data.departure, arrival_id=data.arrival, date=data.date)
     if data.private is True:
         group = await Group.get_or_none(id=data.group)
         if group is None:
