@@ -3,6 +3,7 @@ from tortoise import transactions
 from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.trip import Step, Trip, TripInPost, TripInPostModify
+from app.models.city import City
 from tortoise import Tortoise
 
 from app.models.user import User, UserInFront, UserInToken
@@ -218,13 +219,14 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
     if (data.steps is not None):
 
         # On supprime les anciennes étapes :
-        steps_before = await Step.filter(trip_id=trip.id).delete()
+        await Step.filter(trip_id=trip.id).delete()
 
         # On écrase les anciennes Etapes par les nouvelles Etapes renseignées :
         steps = []
         for s in data.steps:
-            # await Step.create(trip=trip.id, order=s.order, city_id=s.city_id)
-            steps.append(Step(trip=trip.id, order=s.order, city_id=s.city_id))
+            print(s)
+            steps.append(
+                Step(trip_id=trip.id, order=s.order, city_id=s.city_id))
         steps = await Step.bulk_create(steps)
         data.steps.pop()
 
@@ -234,10 +236,10 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
     if (data.private is not None):
         if (data.private and not trip.private):
             # Si pas de group_id donné :
-            if (data.group_id is None):
+            if (data.group is None):
                 raise HTTPException(
                     status_code=400, detail="Trip made private but group_id has not been specified.")
-            group = await Group.get_or_none(id=data.group_id)
+            group = await Group.get_or_none(id=data.group)
             # Si l'ID du groupe ne correspond à aucun groupe :
             if (group is None):
                 raise HTTPException(
@@ -248,7 +250,7 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
                     status_code=403, detail="User is not the owner of the group specified.")
         if (not data.private and trip.private):
             # Si le trajet passe de privé en public, on supprime l'id vers le groupe concerné.
-            data.group = None
+            trip.group = None
 
     # -> Vérification : Si le nombre de participants du trajet est modifié,
     #  On vérifie que le nombre de places est compatible avec le nombre de personnes acceptées à bord.
@@ -259,7 +261,16 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
                 status_code=403, detail="There are more passengers than places left in this configuration.")
 
     # Modification du trajet :
-    trip = await trip.update_from_dict(data.dict(exclude_unset=True))
+    trip.departure = await City.get(code=data.departure)
+    trip.arrival = await City.get(code=data.arrival)
+
+    updated_data = data.dict(exclude_unset=True)
+    updated_data.pop("departure")
+    updated_data.pop("arrival")
+    updated_data.pop("steps")
+
+    trip.update_from_dict(updated_data)
+
     await trip.save()
 
     return {"message": "ok"}

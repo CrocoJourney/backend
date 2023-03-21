@@ -72,7 +72,7 @@ class TripInPostModify(BaseModel):
     price: float | None = None
     private: bool | None = None
     steps: list[StepInPost] | None
-    departure_id: str | None = None
+    departure: str | None = None
     group: int | None
-    arrival_id: str | None = None
+    arrival: str | None = None
     date: datetime | None = None
