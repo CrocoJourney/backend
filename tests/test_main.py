@@ -9,6 +9,23 @@ from app.models.user import User
 
 client = TestClient(app)
 
+async def registerUser():
+    files = [("photo", open('./tests/test.jpg', 'rb'))]
+    data = {
+        "firstname": "jesuis",
+        "lastname": "unebite",
+        "mail": "chpchoupinou@gmail.com",
+        "password": "jesuisunmotdepasse",
+        "confirmPassword": "jesuisunmotdepasse",
+        "phonenumber": "0788947064",
+        "car": "True",
+        "sex": "H",
+        "mailNotification": "True"
+    }
+
+    response = client.post("/users/", data=data, files=files)
+    assert response.status_code == 200, "Request was not successful !"
+
 
 async def init_db():
     await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.models.user", "app.models.group",

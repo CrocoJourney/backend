@@ -216,35 +216,42 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
 
     # -> Vérification : Si les étapes du trajet ont été modifiées, on fait attention !
     if (data.steps is not None):
+
         # On supprime les anciennes étapes :
-        steps_before = Step.get_or_none(trip=trip.id)
-        for s in steps_before:
-            await s.delete()
+        steps_before = await Step.filter(trip_id=trip.id).delete()
 
         # On écrase les anciennes Etapes par les nouvelles Etapes renseignées :
+        steps = []
         for s in data.steps:
-            await Step.create(trip=trip.id, order=s.order, city_id=s.city_id)
-
+            # await Step.create(trip=trip.id, order=s.order, city_id=s.city_id)
+            steps.append(Step(trip=trip.id, order=s.order, city_id=s.city_id))
+        steps = await Step.bulk_create(steps)
         data.steps.pop()
+
     # -> Vérification : Si le groupe est marqué comme privé et que le trajet précédent n'est pas déjà privé,
-    #  on vérifie que l'ID du groupe est renseigné et valide.
-    if (data.private is not None and data.private and not trip.private):
-        # Si pas de group_id donné :
-        if (data.group_id is None):
-            raise HTTPException(
-                status_code=400, detail="Trip made private but group_id has not been specified.")
-        group = await Group.get_or_none(id=data.group_id)
-        # Si l'ID du groupe ne correspond à aucun groupe :
-        if (group is None):
-            raise HTTPException(
-                status_code=404, detail="Group provided does not exists.")
-        # Si le groupe désigné n'appartient pas à l'utilisateur :
-        if (group.owner != user.id):
-            raise HTTPException(
-                status_code=403, detail="User is not the owner of the group specified.")
+    # On vérifie que l'ID du groupe est renseigné et valide.
+    # Si le trajet était privé et devient public, on supprime le champ group_id.
+    if (data.private is not None):
+        if (data.private and not trip.private):
+            # Si pas de group_id donné :
+            if (data.group_id is None):
+                raise HTTPException(
+                    status_code=400, detail="Trip made private but group_id has not been specified.")
+            group = await Group.get_or_none(id=data.group_id)
+            # Si l'ID du groupe ne correspond à aucun groupe :
+            if (group is None):
+                raise HTTPException(
+                    status_code=404, detail="Group provided does not exists.")
+            # Si le groupe désigné n'appartient pas à l'utilisateur :
+            if (group.owner != user.id):
+                raise HTTPException(
+                    status_code=403, detail="User is not the owner of the group specified.")
+        if (not data.private and trip.private):
+            # Si le trajet passe de privé en public, on supprime l'id vers le groupe concerné.
+            data.group = None
 
     # -> Vérification : Si le nombre de participants du trajet est modifié,
-    #  on vérifie que le nombre de places est compatible avec le nombre de personnes acceptées à bord.
+    #  On vérifie que le nombre de places est compatible avec le nombre de personnes acceptées à bord.
     if (data.size is not None):
         passengersAccepted = len(trip.passengers)
         if data.size < passengersAccepted:

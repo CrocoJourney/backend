@@ -1,24 +1,5 @@
-from .test_main import init_db, close_db, client
+from .test_main import init_db, close_db, registerUser, client
 import pytest
-
-
-async def registerUser():
-    files = [("photo", open('./tests/test.jpg', 'rb'))]
-    data = {
-        "firstname": "jesuis",
-        "lastname": "unebite",
-        "mail": "chpchoupinou@gmail.com",
-        "password": "jesuisunmotdepasse",
-        "confirmPassword": "jesuisunmotdepasse",
-        "phonenumber": "0788947064",
-        "car": "True",
-        "sex": "H",
-        "mailNotification": "True"
-    }
-
-    response = client.post("/users/", data=data, files=files)
-    # print("Server response : " + str(response.json))
-    assert response.status_code == 200, "Request was not successful !"
 
 
 @pytest.mark.asyncio
@@ -30,7 +11,6 @@ async def test_register():
 
     # Vérification de l'inscription de l'utilisateur.
     response = client.get("/users/")
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()
@@ -48,7 +28,6 @@ async def test_login():
               "password": "jesuisunmotdepasse"},
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200
     await close_db()
 
@@ -75,12 +54,10 @@ async def test_delete_own_user():
         "/users/1",
     )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # Confirmation de la suppression de l'utilisateur.
     response = client.get("/users/")
-    # print("Server response : " + str(response.json()))
     assert response.json() == []
 
     await close_db()
@@ -112,7 +89,6 @@ async def test_update_user_profile_password():
                                   "confirmPassword": "newPasswordLol"}
                             )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # -> Vérification des modifications apportées.
@@ -122,7 +98,6 @@ async def test_update_user_profile_password():
         json={"refresh_token": refresh_token}
     )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # --> Reconnexion de l'utilisateur.
@@ -133,7 +108,6 @@ async def test_update_user_profile_password():
         headers={"Content-Type": "application/x-www-form-urlencoded"}
     )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()
@@ -169,7 +143,6 @@ async def test_update_user_profile_infos():
                                   }
                             )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     # --> Vérification des modifications apportées.
@@ -183,7 +156,6 @@ async def test_update_user_profile_infos():
     car_changed = response.json()['car'] == False
     mailNotification_changed = response.json()['mailNotification'] == False
 
-    # print("Server response : " + str(response.json()))
     assert firstname_changed and lastname_changed and mail_changed and tel_changed and sex_changed and car_changed and mailNotification_changed, "Changes did not occurr !"
     await close_db()
 
@@ -215,7 +187,6 @@ async def test_update_user_profile_photo():
         files=files
     )
 
-    # print("Server response : " + str(response.json))
     assert response.status_code == 200, "Request was not successful !"
 
     await close_db()

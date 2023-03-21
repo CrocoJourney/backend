@@ -73,6 +73,6 @@ class TripInPostModify(BaseModel):
     private: bool | None = None
     steps: list[StepInPost] | None
     departure_id: str | None = None
-    group_id: int | None
+    group: int | None
     arrival_id: str | None = None
     date: datetime | None = None
