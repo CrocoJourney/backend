@@ -15,37 +15,65 @@ router = APIRouter()
 @router.get("/", description="Date au format YYYY-MM-DD")
 async def get_trips(departure: str, arrival: str, date: date = None, user: UserInToken = Depends(get_user_in_token)):
     # trouve les trajets qui passe par la ville de départ et d'arrivée dans le bon sens ou qui ont directement la ville de départ et d'arrivée
-    if date is None:
-        date = datetime.date.today()
-    query = """
-        SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
-        FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-        WHERE date::date = ($3) and (trip.id IN (
-            SELECT trip_id
-            FROM step
-                INNER JOIN trip ON step.trip_id = trip.id
-            WHERE (departure_id = ($1) AND city_id = ($2))
-                OR (city_id = ($1) AND arrival_id = ($2))
-        )
-        OR trip.id IN (
-            SELECT id
-            FROM trip
-            WHERE id IN (
-                SELECT s1.trip_id
-                FROM step s1
-                    JOIN step s2 ON s1.trip_id = s2.trip_id
-                    JOIN trip ON s1.trip_id = trip.id
-                WHERE s1.city_id = ($1)
-                    AND s2.city_id = ($2)
-                    AND s1.order < s2.order
+    if date is not None:
+        queryDate = """
+            SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+            FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
+            WHERE date::date = ($3) and (trip.id IN (
+                SELECT trip_id
+                FROM step
+                    INNER JOIN trip ON step.trip_id = trip.id
+                WHERE (departure_id = ($1) AND city_id = ($2))
+                    OR (city_id = ($1) AND arrival_id = ($2))
             )
-        )
-        OR (departure_id = ($1) AND arrival_id = ($2)));
-    """
+            OR trip.id IN (
+                SELECT id
+                FROM trip
+                WHERE id IN (
+                    SELECT s1.trip_id
+                    FROM step s1
+                        JOIN step s2 ON s1.trip_id = s2.trip_id
+                        JOIN trip ON s1.trip_id = trip.id
+                    WHERE s1.city_id = ($1)
+                        AND s2.city_id = ($2)
+                        AND s1.order < s2.order
+                )
+            )
+            OR (departure_id = ($1) AND arrival_id = ($2)));
+        """
 
-    conn = Tortoise.get_connection("default")
-    trips = await conn.execute_query_dict(query, values=[departure, arrival, date])
-    return trips
+        conn = Tortoise.get_connection("default")
+        trips = await conn.execute_query_dict(queryDate, values=[departure, arrival, date])
+        return trips
+    else:
+        query = """
+        SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+            FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
+            WHERE trip.id IN (
+                SELECT trip_id
+                FROM step
+                    INNER JOIN trip ON step.trip_id = trip.id
+                WHERE (departure_id = ($1) AND city_id = ($2))
+                    OR (city_id = ($1) AND arrival_id = ($2))
+            )
+            OR trip.id IN (
+                SELECT id
+                FROM trip
+                WHERE id IN (
+                    SELECT s1.trip_id
+                    FROM step s1
+                        JOIN step s2 ON s1.trip_id = s2.trip_id
+                        JOIN trip ON s1.trip_id = trip.id
+                    WHERE s1.city_id = ($1)
+                        AND s2.city_id = ($2)
+                        AND s1.order < s2.order
+                )
+            )
+            OR (departure_id = ($1) AND arrival_id = ($2));
+        """
+        conn = Tortoise.get_connection("default")
+        trips = await conn.execute_query_dict(query, values=[departure, arrival])
+        return trips
 
 
 @router.get("/{trip_id}")
