@@ -327,3 +327,22 @@ async def cancel_participation(trip_id: int, passenger_id : int ,user: User = De
     
     await passenger.delete()
     return {"message": "Passenger successfully removed from the trip"}
+
+
+@router.delete("/{trip_id}/candidates/{passenger_id}")
+@transactions.atomic()
+async def cancel_candidacy(trip_id: int, candidates : int ,user: User = Depends(get_user_in_token)):
+    
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates","passengers")
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    
+    candidates = await User.get_or_none(id=candidates)
+    if candidates not in trip.passengers:
+        raise HTTPException(status_code=404, detail="Passenger not found")
+    
+    if candidates.id != user.id:
+        raise HTTPException(status_code=403, detail="The driver cannot cancel his participation ")
+    
+    await candidates.delete()
+    return {"message": "Candidate successfully removed from the trip"}
