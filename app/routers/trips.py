@@ -3,7 +3,7 @@ from tortoise import transactions
 from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.notification import Notification
-from app.models.trip import Step, Trip, TripInPost, TripInPostModify
+from app.models.trip import Step, Trip, TripInPost, TripInPostModify, TripInFront
 from app.models.city import City
 from tortoise import Tortoise
 
@@ -75,6 +75,20 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(query, values=[departure, arrival])
         return trips
+
+
+@router.get("/me")
+async def get_user_trip_history(user: UserInToken = Depends(get_user_in_token)):
+    # recupere les trajets créé par l'utilisateur et ceux auquel il a participé
+
+    tripsPassenger = await Trip.filter(passengers=user.id)
+
+    tripsDriver = await Trip.filter(driver_id=user.id)
+
+    return {
+        "tripsDriver": tripsDriver,
+        "tripsPassenger": tripsPassenger
+    }
 
 
 @router.get("/{trip_id}")
@@ -201,6 +215,7 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
     return {"message": "ok"}
 
 
+@router.delete("/{trip_id}/accept/{passenger_id}")
 @router.post("/{trip_id}/refuse/{passenger_id}")
 @transactions.atomic()
 async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
@@ -310,21 +325,23 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
 
     return {"message": "ok"}
 
+
 @router.delete("/{trip_id}/passengers/{passenger_id}")
 @transactions.atomic()
-async def cancel_participation(trip_id: int, passenger_id : int ,user: User = Depends(get_user_in_token)):
-    
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates","passengers")
+async def cancel_participation(trip_id: int, passenger_id: int, user: User = Depends(get_user_in_token)):
+
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
-    
+
     passenger = await User.get_or_none(id=passenger_id)
     if passenger not in trip.passengers:
         raise HTTPException(status_code=404, detail="Passenger not found")
-    
+
     if passenger.id != user.id:
-        raise HTTPException(status_code=403, detail="Only the passenger can cancel their participation")
-    
+        raise HTTPException(
+            status_code=403, detail="Only the passenger can cancel their participation")
+
     await passenger.delete()
     return {"message": "Passenger successfully removed from the trip"}
 

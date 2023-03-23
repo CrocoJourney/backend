@@ -2,6 +2,7 @@ from app.models.user import UserInFront
 from datetime import datetime
 from tortoise.models import Model
 from tortoise import fields
+from tortoise.contrib.pydantic import pydantic_model_creator
 from pydantic import BaseModel
 from datetime import date
 
@@ -24,12 +25,17 @@ class Trip(Model):
         "models.Group", related_name="trips", null=True)
     private = fields.BooleanField(default=False)
     passengers = fields.ManyToManyField(
-        "models.User", related_name="trips_as_passenger")
+        "models.User", related_name="trips_as_passenger",
+        through="trip_passenger")
     candidates = fields.ManyToManyField(
-        "models.User", related_name="candidate")
+        "models.User", related_name="trips_as_candidate",
+        through="trip_candidate")
 
     class Meta:
         table = "trip"
+
+TripInFront = pydantic_model_creator(
+    Trip, name="TripInFront", exclude=["passengers", "candidate"])
 
 
 class Step(Model):
