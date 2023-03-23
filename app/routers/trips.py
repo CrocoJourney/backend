@@ -130,6 +130,8 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
 @transactions.atomic()
 async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
+    if driver.car == False :
+        raise HTTPException(status_code=403, detail="You are not allowed to create a trip (no car)")
     if driver is None:
         raise HTTPException(status_code=404, detail="User does not exists")
     trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
