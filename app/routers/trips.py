@@ -201,6 +201,7 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
     return {"message": "ok"}
 
 
+@router.delete("/{trip_id}/accept/{passenger_id}")
 @router.post("/{trip_id}/refuse/{passenger_id}")
 @transactions.atomic()
 async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
@@ -315,13 +316,14 @@ async def cancel_participation(trip_id: int, passenger_id: int, user: User = Dep
     trip = await Trip.get_or_none(id=trip_id)
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
-    
+
     passenger = await Step.filter(trip=trip, passenger_id=passenger_id).first()
     if passenger is None:
         raise HTTPException(status_code=404, detail="Passenger not found")
-    
+
     if passenger.passenger.id != user.id:
-        raise HTTPException(status_code=403, detail="Only the passenger can cancel their participation")
-    
+        raise HTTPException(
+            status_code=403, detail="Only the passenger can cancel their participation")
+
     await passenger.delete()
     return {"message": "Passenger successfully removed from the trip"}
