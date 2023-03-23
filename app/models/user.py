@@ -48,7 +48,6 @@ class UserInRegister(BaseModel):
     sex: str = Field(..., example="H", description="H or F")
     mailNotification: bool = True
 
-
     @validator("sex")
     def sex_validator(cls, v):
         if v not in ["H", "F"]:

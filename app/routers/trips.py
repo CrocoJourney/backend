@@ -2,6 +2,7 @@ from pydantic import parse_obj_as
 from tortoise import transactions
 from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
+from app.models.notification import Notification
 from app.models.trip import Step, Trip, TripInPost, TripInPostModify
 from app.models.city import City
 from tortoise import Tortoise
@@ -17,7 +18,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
     # trouve les trajets qui passe par la ville de départ et d'arrivée dans le bon sens ou qui ont directement la ville de départ et d'arrivée
     if date is not None:
         queryDate = """
-            SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
             WHERE date::date = ($3) and (trip.id IN (
                 SELECT trip_id
@@ -47,7 +48,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         return trips
     else:
         query = """
-        SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
             WHERE trip.id IN (
                 SELECT trip_id
@@ -150,12 +151,13 @@ async def delete_trip(trip_id: int, user: UserInToken = Depends(get_user_in_toke
 
 
 @router.post("/{trip_id}/join")
+@transactions.atomic()
 async def join_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)):
     # ajoute l'utilisateur au trajet
     userInDB = await User.get_or_none(id=user.id)
     if userInDB is None:
         raise HTTPException(status_code=404, detail="User does not exists")
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("group__friends", "passengers", "candidates")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("group__friends", "passengers", "candidates", "driver")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip does not exists")
     if trip.driver_id == user.id:
@@ -171,6 +173,10 @@ async def join_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)
         raise HTTPException(
             status_code=403, detail="Forbidden you are already in this trip")
     await trip.candidates.add(userInDB)
+    await Notification.create(sender=userInDB, receiver=trip.driver, action=True,
+                              subject="join", content=f"{userInDB.firstname} {userInDB.lastname} veut rejoindre votre trajet :  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}", buttonUrl1=f"/trips/{trip.id}/accept/{user.id}", buttonUrl2=f"/trips/{trip.id}/refuse/{user.id}",
+                              buttonText1="Accept", buttonText2="Refuse")
     return {"message": "ok"}
 
 
@@ -252,7 +258,6 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
         # On écrase les anciennes Etapes par les nouvelles Etapes renseignées :
         steps = []
         for s in data.steps:
-            print(s)
             steps.append(
                 Step(trip_id=trip.id, order=s.order, city_id=s.city_id))
         steps = await Step.bulk_create(steps)

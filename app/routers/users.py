@@ -1,6 +1,7 @@
 import hashlib
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from pydantic import BaseModel, ValidationError, parse_obj_as
+from app.models.notification import Notification, NotificationInFront
 from app.models.user import UserInFront, UserInFrontWithPhone, UserInToken
 from app.models.user import UserInRegister, User, UserInUpdate
 from tortoise.exceptions import IntegrityError
@@ -93,6 +94,13 @@ async def get_users(user: UserInToken = Depends(get_user_in_token)):
     return parse_obj_as(list[UserInFront], users)
 
 
+@router.get("/me")
+async def get_user(user: UserInToken = Depends(get_user_in_token)):
+    user = await User.get(id=user.id)
+    # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
+    return parse_obj_as(UserInFrontWithPhone, user)
+
+
 @router.get("/{id}")
 async def get_user(id: int, user: UserInToken = Depends(get_user_in_token)):
     userInDB = await User.get(id=id)
@@ -107,11 +115,28 @@ async def delete_user(id: int, user: UserInToken = Depends(get_user_in_token)):
     return {"message": "ok"}
 
 
-@router.get("/me")
-async def get_user(user: UserInToken = Depends(get_user_in_token)):
-    user = await User.get(id=user.id)
-    # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
-    return parse_obj_as(UserInFrontWithPhone, user)
+@router.get("/me/notifications")
+async def get_user_notifications(user: UserInToken = Depends(get_user_in_token)):
+    notifications = await Notification.filter(receiver_id=user.id).prefetch_related("sender", "receiver").all()
+    return notifications
+
+
+@router.get("/me/notifications/count")
+async def get_user_notifications_count(user: UserInToken = Depends(get_user_in_token)):
+    count = await Notification.filter(receiver_id=user.id).count()
+    return {"count": count}
+
+
+@router.delete("/me/notifications/{id}")
+async def delete_user_notification(id: int, user: UserInToken = Depends(get_user_in_token)):
+    notification = await Notification.get_or_none(id=id)
+    if notification is None:
+        raise HTTPException(
+            status_code=404, detail="Notification does not exists")
+    if notification.receiver_id != user.id:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    await notification.delete()
+    return {"message": "ok"}
 
 
 @router.patch("/me")
@@ -133,7 +158,6 @@ async def update(patchedUser: UserInUpdate, user: UserInToken = Depends(get_user
         await userInDatabase.save()
         return {"message": "ok"}
     except IntegrityError as e:
-        print(e)
         raise HTTPException(status_code=400, detail="Email already registered")
 
 
