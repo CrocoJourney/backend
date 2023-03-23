@@ -88,9 +88,15 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
 
 
 @router.get("/")
-async def get_users():
+async def get_users(user: UserInToken = Depends(get_user_in_token)):
     users = await User.all()
     return parse_obj_as(list[UserInFront], users)
+
+
+@router.get("/{id}")
+async def get_user(id: int, user: UserInToken = Depends(get_user_in_token)):
+    userInDB = await User.get(id=id)
+    return parse_obj_as(UserInFront, userInDB)
 
 
 @router.delete("/{id}")
