@@ -302,3 +302,21 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
     await trip.save()
 
     return {"message": "ok"}
+
+
+@router.delete("/trips/{trip_id}/passengers/{passenger_id}")
+@transactions.atomic()
+async def cancel_participation(trip_id: int, passenger_id: int, user: User = Depends(get_user_in_token)):
+    trip = await Trip.get_or_none(id=trip_id)
+    if trip is None:
+        raise HTTPException(status_code=404, detail="Trip not found")
+    
+    passenger = await Step.filter(trip=trip, passenger_id=passenger_id).first()
+    if passenger is None:
+        raise HTTPException(status_code=404, detail="Passenger not found")
+    
+    if passenger.passenger.id != user.id:
+        raise HTTPException(status_code=403, detail="Only the passenger can cancel their participation")
+    
+    await passenger.delete()
+    return {"message": "Passenger successfully removed from the trip"}
