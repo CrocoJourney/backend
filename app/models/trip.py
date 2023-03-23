@@ -25,9 +25,11 @@ class Trip(Model):
         "models.Group", related_name="trips", null=True)
     private = fields.BooleanField(default=False)
     passengers = fields.ManyToManyField(
-        "models.User", related_name="trips_as_passenger")
+        "models.User", related_name="trips_as_passenger",
+        through="trip_passenger")
     candidates = fields.ManyToManyField(
-        "models.User", related_name="candidate")
+        "models.User", related_name="trips_as_candidate",
+        through="trip_candidate")
 
     class Meta:
         table = "trip"
