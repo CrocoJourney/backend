@@ -131,6 +131,8 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
 @transactions.atomic()
 async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
+    if driver.car == False :
+        raise HTTPException(status_code=403, detail="You are not allowed to create a trip (no car)")
     if driver is None:
         raise HTTPException(status_code=404, detail="User does not exists")
     trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
@@ -215,7 +217,6 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
     return {"message": "ok"}
 
 
-@router.delete("/{trip_id}/accept/{passenger_id}")
 @router.post("/{trip_id}/refuse/{passenger_id}")
 @transactions.atomic()
 async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = Depends(get_user_in_token)):
@@ -348,12 +349,12 @@ async def cancel_participation(trip_id: int, passenger_id: int, user: User = Dep
 
 @router.delete("/{trip_id}/candidates/{passenger_id}")
 @transactions.atomic()
-async def cancel_candidacy(trip_id: int, candidates : int ,user: User = Depends(get_user_in_token)):
-    
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates","passengers")
+async def cancel_candidacy(trip_id: int, candidates: int, user: User = Depends(get_user_in_token)):
+
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
-    
+
     candidates = await User.get_or_none(id=candidates)
     if candidates not in trip.candidates:
         raise HTTPException(status_code=404, detail="Candidates not found")
