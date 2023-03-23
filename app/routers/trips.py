@@ -3,7 +3,7 @@ from tortoise import transactions
 from datetime import date, timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.notification import Notification
-from app.models.trip import Step, Trip, TripInPost, TripInPostModify
+from app.models.trip import Step, Trip, TripInPost, TripInPostModify, TripInFront
 from app.models.city import City
 from tortoise import Tortoise
 
@@ -75,6 +75,19 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(query, values=[departure, arrival])
         return trips
+    
+@router.get("/me")
+async def get_user_trip_history(user: UserInToken = Depends(get_user_in_token)):
+    # recupere les trajets créé par l'utilisateur et ceux auquel il a participé
+    
+    tripsPassenger = await Trip.filter(passengers=user.id)
+
+    tripsDriver = await Trip.filter(driver_id=user.id)
+    
+    return {
+        "tripsDriver":tripsDriver,
+        "tripsPassenger":tripsPassenger
+    }
 
 
 @router.get("/{trip_id}")
