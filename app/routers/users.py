@@ -94,6 +94,13 @@ async def get_users(user: UserInToken = Depends(get_user_in_token)):
     return parse_obj_as(list[UserInFront], users)
 
 
+@router.get("/me")
+async def get_user(user: UserInToken = Depends(get_user_in_token)):
+    user = await User.get(id=user.id)
+    # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
+    return parse_obj_as(UserInFrontWithPhone, user)
+
+
 @router.get("/{id}")
 async def get_user(id: int, user: UserInToken = Depends(get_user_in_token)):
     userInDB = await User.get(id=id)
@@ -106,13 +113,6 @@ async def delete_user(id: int, user: UserInToken = Depends(get_user_in_token)):
         raise HTTPException(status_code=403, detail="Forbidden")
     await User.filter(id=id).delete()
     return {"message": "ok"}
-
-
-@router.get("/me")
-async def get_user(user: UserInToken = Depends(get_user_in_token)):
-    user = await User.get(id=user.id)
-    # comme cette route n'est accessible que par l'utilisateur connecté on peut lui renvoyer son numéro de téléphone
-    return parse_obj_as(UserInFrontWithPhone, user)
 
 
 @router.get("/me/notifications")
