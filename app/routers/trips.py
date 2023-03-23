@@ -238,6 +238,7 @@ async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
 
 
 @router.patch("/{trip_id}", description="Modification du trajet designé par trip_id")
+@transactions.atomic()
 async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = Depends(get_user_in_token)):
     userInDB = await User.get_or_none(id=user.id)
     if userInDB is None:
@@ -313,7 +314,8 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
     updated_data = data.dict(exclude_unset=True)
     updated_data.pop("departure")
     updated_data.pop("arrival")
-    updated_data.pop("steps")
+    if hasattr(updated_data, "steps"):
+        updated_data.pop("steps")
 
     trip.update_from_dict(updated_data)
 
