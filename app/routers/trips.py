@@ -47,7 +47,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         return trips
     else:
         query = """
-        SELECT trip.id as id,title,date,size,price,d.id,d.code as departure_id,d.name as departure_name,a.id as arrival,a.name as arrival_name
+            SELECT trip.id as id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
             WHERE trip.id IN (
                 SELECT trip_id
