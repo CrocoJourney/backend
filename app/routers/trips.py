@@ -80,10 +80,8 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
 @router.get("/me")
 async def get_user_trip_history(user: UserInToken = Depends(get_user_in_token)):
     # recupere les trajets créé par l'utilisateur et ceux auquel il a participé
-
-    tripsPassenger = await Trip.filter(passengers=user.id)
-
-    tripsDriver = await Trip.filter(driver_id=user.id)
+    tripsPassenger = await Trip.filter(passengers=user.id).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
+    tripsDriver = await Trip.filter(driver_id=user.id).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
 
     return {
         "tripsDriver": tripsDriver,
@@ -131,8 +129,9 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
 @transactions.atomic()
 async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
-    if driver.car == False :
-        raise HTTPException(status_code=403, detail="You are not allowed to create a trip (no car)")
+    if driver.car == False:
+        raise HTTPException(
+            status_code=403, detail="You are not allowed to create a trip (no car)")
     if driver is None:
         raise HTTPException(status_code=404, detail="User does not exists")
     trip = Trip(driver=driver, title=data.title, size=data.size, constraints=data.constraints, precisions=data.precisions,
@@ -358,9 +357,10 @@ async def cancel_candidacy(trip_id: int, candidates: int, user: User = Depends(g
     candidates = await User.get_or_none(id=candidates)
     if candidates not in trip.candidates:
         raise HTTPException(status_code=404, detail="Candidates not found")
-    
+
     if candidates.id == trip.driver:
-        raise HTTPException(status_code=403, detail="The driver cannot cancel his participation ")
-    
+        raise HTTPException(
+            status_code=403, detail="The driver cannot cancel his participation ")
+
     await trip.candidates.remove(candidates)
     return {"message": "Candidate successfully removed from the trip"}
