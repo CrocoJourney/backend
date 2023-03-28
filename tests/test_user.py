@@ -162,7 +162,6 @@ async def test_update_user_profile_infos():
 
 @pytest.mark.asyncio
 async def test_update_user_profile_photo():
-    pass
     await init_db()
     # Création de l'utilisateur
     await registerUser()
