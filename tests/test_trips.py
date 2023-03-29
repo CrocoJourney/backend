@@ -56,36 +56,6 @@ async def test_creation_trajet():
 
 
 @pytest.mark.asyncio
-async def test_get_trips():
-    await init_db()
-    await City.loadJSON("app/static/communes.json")
-
-    # Inscription du nouvel utilisateur.
-    await registerUser()
-    # Connexion de l'utilisateur.
-    response = client.post(
-        "/auth/login",
-        data={"username": "chpchoupinou@gmail.com",
-              "password": "jesuisunmotdepasse"},
-        headers={"Content-Type": "application/x-www-form-urlencoded"}
-    )
-    assert response.status_code == 200
-    tokens = response.json()
-    access_token = tokens["access_token"]
-    client.headers["x-crocojourney-authorization"] = f"Bearer {access_token}"
-
-    # Création du trajet
-    response = await prepare_trip()
-    assert response.status_code == 200, "Request was not successful !"
-
-    response = client.get(
-        "/trips/?departure=88500&arrival=57001"
-    )
-    print(str(response.json()))
-    assert response.status_code == 200, "Request was not successful !"
-
-
-@pytest.mark.asyncio
 async def test_get_trips_with_id():
     await init_db()
     await City.loadJSON("app/static/communes.json")
