@@ -4,7 +4,6 @@ from tortoise.models import Model
 from tortoise import fields
 from tortoise.contrib.pydantic import pydantic_model_creator
 from pydantic import BaseModel
-from datetime import date
 
 
 class Trip(Model):
@@ -33,6 +32,7 @@ class Trip(Model):
 
     class Meta:
         table = "trip"
+
 
 TripInFront = pydantic_model_creator(
     Trip, name="TripInFront", exclude=["passengers", "candidate"])

@@ -1,6 +1,6 @@
 from tortoise import Tortoise
 from app.models.city import City
-from app.routers import auth, trips, users, groups
+from app.routers import auth, trips, users, groups, review
 from tortoise.contrib.fastapi import register_tortoise
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -29,9 +29,13 @@ tags_metadata = [
         "description": "routes sur les trajets",
     },
     {
+        "name": "review",
+        "description": "routes de notation des utilisateurs",
+    },
+    {
         "name": "example",
         "description": "routes d'exemple",
-    },
+    }
 ]
 
 
@@ -76,6 +80,7 @@ app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
 app.include_router(trips.router, prefix="/trips", tags=["trips"])
 app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(review.router, prefix="/review", tags=["review"])
 
 
 @app.get("/")
