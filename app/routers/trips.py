@@ -1,6 +1,6 @@
 from pydantic import parse_obj_as
 from tortoise import transactions
-from datetime import date, timedelta, datetime, timezone
+from datetime import date, timedelta, datetime
 from fastapi import APIRouter, Depends, HTTPException
 from app.models.notification import Notification
 from app.models.trip import Step, Trip, TripInPost, TripInPostModify, TripInFront
