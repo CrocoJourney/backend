@@ -19,12 +19,14 @@ async def get_groups(user: UserInToken = Depends(get_user_in_token)):
 
 
 @router.get("/{group_id}")
-async def get_groups(group_id: int, user: UserInToken = Depends(get_user_in_token)):
-    group = await Group.get_or_none(id=group_id).prefetch_related("friends", "owner")
+async def get_group(group_id: int, user: UserInToken = Depends(get_user_in_token)):
+    group = await Group.get_or_none(id=group_id).prefetch_related("friends", "owner","friends")
     if group is None:
         raise HTTPException(status_code=404, detail="Group does not exists")
+    if group.owner_id != user.id and user.admin is False:
+        raise HTTPException(status_code=403, detail="Forbidden")
     # show friends in group
-    friends = [parse_obj_as(list[UserInFront], await group.friends)]
+    friends = parse_obj_as(list[UserInFront], friends)
     return {
         "id": group.id,
         "name": group.name,
