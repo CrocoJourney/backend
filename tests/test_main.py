@@ -9,11 +9,12 @@ from app.models.user import User
 
 client = TestClient(app)
 
+
 async def registerUser():
     files = [("photo", open('./tests/test.jpg', 'rb'))]
     data = {
         "firstname": "jesuis",
-        "lastname": "unebite",
+        "lastname": "unbit",
         "mail": "chpchoupinou@gmail.com",
         "password": "jesuisunmotdepasse",
         "confirmPassword": "jesuisunmotdepasse",
@@ -53,6 +54,3 @@ async def test_async():
     user = await User.get_or_none(mail="mail.mail.com")
     assert user is not None
     await close_db()
-
-
-
