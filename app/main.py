@@ -1,4 +1,6 @@
-from app.routers import auth, users
+from tortoise import Tortoise
+from app.models.city import City
+from app.routers import auth, reviews, trips, users, groups
 from tortoise.contrib.fastapi import register_tortoise
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
@@ -19,9 +21,21 @@ tags_metadata = [
         "description": "routes pour les utilisateurs",
     },
     {
+        "name": "groups",
+        "description": "routes pour les groupes d'utilisateurs / amis",
+    },
+    {
+        "name": "trips",
+        "description": "routes sur les trajets",
+    },
+    {
+        "name": "reviews",
+        "description": "routes de notation des utilisateurs",
+    },
+    {
         "name": "example",
         "description": "routes d'exemple",
-    },
+    }
 ]
 
 
@@ -39,7 +53,15 @@ app = FastAPI(
 
 @app.on_event("startup")
 async def startup():
-    pass
+    # wait for tortoise to be ready
+    await Tortoise.init(
+        db_url=DB_URL,
+        modules={"models": ["app.models.user", "app.models.group",
+                            "app.models.city", "app.models.trip", "app.models.ban", "app.models.notification", "app.models.review"]},
+    )
+    await Tortoise.generate_schemas()
+    # drop table city
+    await City.loadJSON("app/static/communes.json")
 
 
 app.add_middleware(
@@ -56,6 +78,9 @@ app.mount('/static', StaticFiles(directory='app/static'), name='static')
 app.include_router(example.router, prefix="/example", tags=["example"])
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(users.router, prefix="/users", tags=["users"])
+app.include_router(trips.router, prefix="/trips", tags=["trips"])
+app.include_router(groups.router, prefix="/groups", tags=["groups"])
+app.include_router(reviews.router, prefix="/reviews", tags=["reviews"])
 
 
 @app.get("/")
@@ -67,6 +92,8 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+Tortoise.init_models(["app.models.user", "app.models.group"], "models")
 
 register_tortoise(
     app,

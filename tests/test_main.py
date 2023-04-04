@@ -9,6 +9,23 @@ from app.models.user import User
 
 client = TestClient(app)
 
+async def registerUser():
+    files = [("photo", open('./tests/test.jpg', 'rb'))]
+    data = {
+        "firstname": "jesuis",
+        "lastname": "unebite",
+        "mail": "chpchoupinou@gmail.com",
+        "password": "jesuisunmotdepasse",
+        "confirmPassword": "jesuisunmotdepasse",
+        "phonenumber": "0788947064",
+        "car": "True",
+        "sex": "H",
+        "mailNotification": "True"
+    }
+
+    response = client.post("/users/", data=data, files=files)
+    assert response.status_code == 200, "Request was not successful !"
+
 
 async def init_db():
     await Tortoise.init(db_url="sqlite://:memory:", modules={"models": ["app.models.user", "app.models.group",
@@ -29,7 +46,13 @@ def test_root():
 @pytest.mark.asyncio
 async def test_async():
     await init_db()
-    await User.create(password="test", mail="mail.mail.com", hash="aaa", salt="haaaaaash", firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user = User(password="test", mail="mail.mail.com", salt="haaaaaash",
+                firstname="test", lastname="test", phonenumber="0605969659", sex="h", photoPath="/static/img/default.png")
+    user.hash = user.get_password_hash("motdepasse")
+    await user.save()
     user = await User.get_or_none(mail="mail.mail.com")
     assert user is not None
     await close_db()
+
+
+

@@ -1,5 +1,6 @@
 from tortoise.models import Model
 from tortoise import fields
+from pydantic import BaseModel
 
 
 class Group(Model):
@@ -10,3 +11,7 @@ class Group(Model):
 
     class Meta:
         table = "group"
+
+
+class GroupInPost(BaseModel):
+    name: str

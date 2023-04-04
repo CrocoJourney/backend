@@ -1,5 +1,8 @@
 from tortoise.models import Model
+from pydantic import BaseModel
 from tortoise import fields
+from datetime import datetime
+from pydantic import BaseModel, validator
 
 
 class Review(Model):
@@ -14,3 +17,15 @@ class Review(Model):
         table = "review"
         # un utilisateur ne peut pas noter deux fois la même personne pour le même trajet
         unique_together = ("author", "rated", "trip")
+
+
+class ReviewInPost(BaseModel):
+    user_rated: int
+    trip_rated: int
+    rating: int
+
+    @validator("rating")
+    def rating_validator(cls, v):
+        if not v >= 5 and not v >= 0:
+            raise ValueError("Rating must be between 0 and 5")
+        return v
