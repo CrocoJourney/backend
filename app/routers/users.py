@@ -5,9 +5,6 @@ from app.models.user import UserInRegister, User
 from tortoise.exceptions import IntegrityError
 from app.utils.mail import sendWelcomeMail
 import aiofiles
-from app.models.user import UserInToken
-from app.utils.tokens import get_user_in_token
-
 router = APIRouter()
 
 
@@ -23,7 +20,7 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
                    phonenumber: str = Form(...,
                                            description="Numéro de téléphone de l'utilisateur"),
                    car: bool = Form(
-                       ..., description="Possède-t-il une voiture ?"),
+                       False, description="Possède-t-il une voiture ?"),
                    sex: str = Form(..., example="H", description="H ou F"),
                    mailNotification: bool = Form(
                        ..., description="L'utilisateur souhaite-t-il recevoir des notifications par mail ?"),
@@ -57,39 +54,3 @@ async def register(firstname: str = Form(..., description="Prénom de l'utilisat
 async def get_users():
     users = await User.all()
     return parse_obj_as(list[UserInFront], users)
-
-
-@router.put("/")
-async def update(user: UserInToken = Depends(get_user_in_token),
-                   firstname: str = Form(..., description="Prénom de l'utilisateur"),
-                   lastname: str = Form(...,
-                                        description="Nom de famille de l'utilisateur"),
-                   mail: str = Form(..., description="Email de l'utilisateur"),
-                   password: str = Form(...,
-                                        description="Mot de passe de l'utilisateur"),
-                   confirmPassword: str = Form(
-                       ..., description="Confirmation du mot de passe de l'utilisateur"),
-                   phonenumber: str = Form(...,
-                                           description="Numéro de téléphone de l'utilisateur"),
-                   car: bool = Form(
-                       ..., description="Possède-t-il une voiture ?"),
-                   sex: str = Form(..., example="H", description="H ou F"),
-                   mailNotification: bool = Form(
-                       ..., description="L'utilisateur souhaite-t-il recevoir des notifications par mail ?"),
-                   photo: UploadFile = File(..., media_type=["image/png", "image/jpeg"], description="Photo de profil")):
-    try:
-        # on passe les données du formulaire à pydantic pour les valider avec les validateurs
-        form_data = UserInRegister(firstname=firstname, lastname=lastname, mail=mail, password=password,
-                                   confirmPassword=confirmPassword, phonenumber=phonenumber, car=car, sex=sex, mailNotification=mailNotification)
-        
-        # Récupération de l'utilisateur dans la base de données.
-        userInDatabase = await User.get(user)
-
-        # Comparaison des informations fournies avec celles de la BDD.
-
-
-
-        return {"message": "ok"}
-    except IntegrityError as e:
-        print(e)
-        raise HTTPException(status_code=400, detail="Email already registered")
