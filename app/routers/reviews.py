@@ -59,6 +59,18 @@ async def create_review(review: ReviewInPost, user: UserInToken = Depends(get_us
 # en attente de test
 
 
+@router.put("/{review_id}")
+async def update_review(review_id: int, newRating: int,user: UserInToken = Depends(get_user_in_token)):
+    review = await Review.get_or_none(id=review_id)
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review does not exist")
+    if review.author_id != user.id:
+        raise HTTPException(status_code=403, detail="You are not allowed to update this group")
+    review.rating = newRating
+    await review.save()
+    return {"message": "Review updated"} 
+
+
 @router.delete("/{review_id}")
 async def delete_review(review_id: int, user: UserInToken = Depends(get_user_in_token)):
     review = await Review.get_or_none(id=review_id)
