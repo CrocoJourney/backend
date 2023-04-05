@@ -58,6 +58,17 @@ async def create_review(review: ReviewInPost, user: UserInToken = Depends(get_us
 
 # en attente de test
 
+@router.get("/me")
+async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
+    # recupere la moyenne des notes recu
+    notes = await Review.filter(rated_id=user.id)
+    rating = 0
+    for i in notes:
+        rating+=i.rating
+    if rating ==0:
+        raise HTTPException(status_code=403, detail="You haven't received reviews")
+    rating = rating / len(notes)
+    return rating
 
 @router.put("/{review_id}")
 async def update_review(review_id: int, newRating: int,user: UserInToken = Depends(get_user_in_token)):
