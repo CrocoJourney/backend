@@ -67,16 +67,6 @@ async def get_user_review(user: UserInToken = Depends(get_user_in_token)):
     }
 
 
-@router.get("/")
-async def get_user_review(user: UserInToken = Depends(get_user_in_token)):
-    # recupere les review faites pas l'utilisateur
-    reviews = await Review.filter(author_id=user.id).values("id", "date", "rating", "trip_id", "rated_id")
-
-    return {
-        "reviews": reviews
-    }
-
-
 @router.get("/me")
 async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
     # recupere la moyenne des notes recu
@@ -95,7 +85,8 @@ async def update_review(review_id: int, patchedReview: ReviewInUpdate, user: Use
     if review.author_id != user.id:
         raise HTTPException(
             status_code=403, detail="You are not allowed to update this review")
-   
+    if patchedReview.rating >5 or patchedReview.rating< 0:
+       raise HTTPException(status_code=403,detail="Rating must be between 0 and 5")
     review.rating = patchedReview.rating
     await review.save()
     return {"message": "Review updated"}
