@@ -277,7 +277,9 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
             steps.append(
                 Step(trip_id=trip.id, order=s.order, city_id=s.city_id))
         steps = await Step.bulk_create(steps)
-        data.steps.pop()
+        # verif si on a des etapes avant de pop
+        if (len(steps) > 0):
+            data.steps.pop()
 
     # -> Vérification : Si le groupe est marqué comme privé et que le trajet précédent n'est pas déjà privé,
     # On vérifie que l'ID du groupe est renseigné et valide.
