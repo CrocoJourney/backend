@@ -76,6 +76,16 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         return trips
 
 
+@router.get("/private")
+async def get_user_possible_private_trips(user: UserInToken = Depends(get_user_in_token)):
+    user = await User.get_or_none(id=user.id).prefetch_related("friends")
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    groups_id = await Group.filter(friends__in=user.friends).values_list("id", flat=True)
+    trips = await Trip.filter(private=True, group_id__in=groups_id).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
+    return trips
+
+
 @router.get("/me")
 async def get_user_trip_history(user: UserInToken = Depends(get_user_in_token)):
     # recupere les trajets créé par l'utilisateur et ceux auquel il a participé
