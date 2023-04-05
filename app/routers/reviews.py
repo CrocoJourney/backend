@@ -56,42 +56,49 @@ async def create_review(review: ReviewInPost, user: UserInToken = Depends(get_us
 
     return {"message": "ok"}
 
-# en attente de test
 
 @router.get("/")
 async def get_user_review(user: UserInToken = Depends(get_user_in_token)):
-    # recupere les review faites pas l'utilisateur
-    reviews = await Review.filter(author_id=user.id).values("id","date","rating","trip_id","rated_id")
-    
+    # recupere les review créées par l'utilisateur
+    reviews = await Review.filter(author_id=user.id).values("id", "date", "rating", "trip_id", "rated_id")
+
     return {
         "reviews": reviews
     }
 
+
+@router.get("/")
+async def get_user_review(user: UserInToken = Depends(get_user_in_token)):
+    # recupere les review faites pas l'utilisateur
+    reviews = await Review.filter(author_id=user.id).values("id", "date", "rating", "trip_id", "rated_id")
+
+    return {
+        "reviews": reviews
+    }
+
+
 @router.get("/me")
 async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
     # recupere la moyenne des notes recu
-    notes = await Review.filter(rated_id=user.id)
-    rating = 0
-    for i in notes:
-        rating+=i.rating
-    if rating ==0:
-        raise HTTPException(status_code=403, detail="You haven't received reviews")
-    rating = rating / len(notes)
-    return rating
-
+    avg = await Review.filter(rated=user.id).annotate(avg=Avg("rating")).values("avg")
+    if (avg[0] == "null"):
+        raise HTTPException(
+            status_code=404, detail="No reviews were left for this user !")
+    return avg[0]
 
 
 @router.put("/{review_id}")
-async def update_review(review_id: int, patchedReview: ReviewInUpdate,user: UserInToken = Depends(get_user_in_token)):
+async def update_review(review_id: int, patchedReview: ReviewInUpdate, user: UserInToken = Depends(get_user_in_token)):
     review = await Review.get_or_none(id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review does not exist")
     if review.author_id != user.id:
-        raise HTTPException(status_code=403, detail="You are not allowed to update this review")
+        raise HTTPException(
+            status_code=403, detail="You are not allowed to update this review")
    
     review.rating = patchedReview.rating
     await review.save()
-    return {"message": "Review updated"} 
+    return {"message": "Review updated"}
 
 
 @router.delete("/{review_id}")
