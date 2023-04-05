@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.user import User, UserInToken
 from app.models.review import Review, ReviewInPost, ReviewInUpdate
 from datetime import date, timedelta, datetime, timezone
+from tortoise.functions import Avg
 from app.models.trip import Trip
 from app.utils.tokens import get_user_in_token
 
@@ -85,8 +86,9 @@ async def update_review(review_id: int, patchedReview: ReviewInUpdate, user: Use
     if review.author_id != user.id:
         raise HTTPException(
             status_code=403, detail="You are not allowed to update this review")
-    if patchedReview.rating >5 or patchedReview.rating< 0:
-       raise HTTPException(status_code=403,detail="Rating must be between 0 and 5")
+    if patchedReview.rating > 5 or patchedReview.rating < 0:
+        raise HTTPException(
+            status_code=403, detail="Rating must be between 0 and 5")
     review.rating = patchedReview.rating
     await review.save()
     return {"message": "Review updated"}
