@@ -20,7 +20,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         queryDate = """
             SELECT trip.id as id,driver_id,title,date,private,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE date::date between ($3) and ($3) + interval '27 hours' and (trip.id IN (
+            WHERE private = false and date::date between ($3) and ($3) + interval '27 hours' and (trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
@@ -49,7 +49,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
         query = """
             SELECT trip.id as id,driver_id,title,date,size,price,private,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE private = false and  trip.id IN (
+            WHERE private = false and  (trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
@@ -69,7 +69,7 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
                         AND s1.order < s2.order
                 )
             )
-            OR (departure_id = ($1) AND arrival_id = ($2));
+            OR (departure_id = ($1) AND arrival_id = ($2)));
         """
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(query, values=[departure, arrival])
