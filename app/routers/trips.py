@@ -18,9 +18,9 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
     # trouve les trajets qui passe par la ville de départ et d'arrivée dans le bon sens ou qui ont directement la ville de départ et d'arrivée
     if date is not None:
         queryDate = """
-            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,private,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE date::date = ($3) and (trip.id IN (
+            WHERE date::date between ($3) and ($3) + interval '27 hours' and (trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
@@ -42,15 +42,14 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
             )
             OR (departure_id = ($1) AND arrival_id = ($2)));
         """
-
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(queryDate, values=[departure, arrival, date])
         return trips
     else:
         query = """
-            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,size,price,private,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE trip.id IN (
+            WHERE private = false and  trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
