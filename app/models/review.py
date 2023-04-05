@@ -30,4 +30,7 @@ class ReviewInPost(BaseModel):
             raise ValueError("Rating must be between 0 and 5")
         return v
     
+class ReviewInUpdate(BaseModel):
+    rating: int
 
+    

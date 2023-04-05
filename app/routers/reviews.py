@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.user import User, UserInToken
-from app.models.review import Review, ReviewInPost
+from app.models.review import Review, ReviewInPost, ReviewInUpdate
 from datetime import date, timedelta, datetime, timezone
 from app.models.trip import Trip
 from app.utils.tokens import get_user_in_token
@@ -82,13 +82,14 @@ async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
 
 
 @router.put("/{review_id}")
-async def update_review(review_id: int, newRating: int,user: UserInToken = Depends(get_user_in_token)):
+async def update_review(review_id: int, patchedReview: ReviewInUpdate,user: UserInToken = Depends(get_user_in_token)):
     review = await Review.get_or_none(id=review_id)
     if review is None:
         raise HTTPException(status_code=404, detail="Review does not exist")
     if review.author_id != user.id:
-        raise HTTPException(status_code=403, detail="You are not allowed to update this group")
-    review.rating = newRating
+        raise HTTPException(status_code=403, detail="You are not allowed to update this review")
+   
+    review.rating = patchedReview.rating
     await review.save()
     return {"message": "Review updated"} 
 
