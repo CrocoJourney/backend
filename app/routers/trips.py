@@ -81,8 +81,11 @@ async def get_user_possible_private_trips(user: UserInToken = Depends(get_user_i
     user = await User.get_or_none(id=user.id).prefetch_related("friends")
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
-    groups_id = await Group.filter(friends__in=user.friends).values_list("id", flat=True)
-    trips = await Trip.filter(private=True, group_id__in=groups_id).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
+    # FIXME: Doit etre fait sans iteration , mais phillip en a besoin rapidement
+    ids = []
+    for friend in user.friends:
+        ids.append(friend.id)
+    trips = await Trip.filter(private=True, group_id__in=ids).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
     return trips
 
 
