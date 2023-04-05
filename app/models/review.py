@@ -32,5 +32,3 @@ class ReviewInPost(BaseModel):
     
 class ReviewInUpdate(BaseModel):
     rating: int
-
-    
