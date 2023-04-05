@@ -78,7 +78,7 @@ async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
     return avg[0]
 
 
-@router.get("/{user_id}}")
+@router.get("/{user_id}")
 async def get_user_rating_withID(user_id: int, user: UserInToken = Depends(get_user_in_token)):
     userInDB = User.get_or_none(id=user_id)
     if (userInDB is None):
