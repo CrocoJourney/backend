@@ -78,6 +78,22 @@ async def get_user_rating(user: UserInToken = Depends(get_user_in_token)):
     return avg[0]
 
 
+@router.get("/{user_id}}")
+async def get_user_rating_withID(user_id: int, user: UserInToken = Depends(get_user_in_token)):
+    userInDB = User.get_or_none(id=user_id)
+    if (userInDB is None):
+        raise HTTPException(
+            status_code=404, detail="User does not exists")
+
+    # recupere la moyenne des notes recu pour l'id de l'utilisateur concerné
+    avg = await Review.filter(rated=user_id).annotate(avg=Avg("rating")).values("avg")
+
+    if (avg[0] == "null"):
+        raise HTTPException(
+            status_code=404, detail="No reviews were left for this user !")
+    return avg[0]
+
+
 @router.put("/{review_id}")
 async def update_review(review_id: int, patchedReview: ReviewInUpdate, user: UserInToken = Depends(get_user_in_token)):
     review = await Review.get_or_none(id=review_id)
