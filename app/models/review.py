@@ -29,3 +29,5 @@ class ReviewInPost(BaseModel):
         if not v >= 5 and not v >= 0:
             raise ValueError("Rating must be between 0 and 5")
         return v
+    
+
