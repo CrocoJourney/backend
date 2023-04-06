@@ -1,7 +1,7 @@
 from pydantic import parse_obj_as
 from tortoise import transactions
 from datetime import date, timedelta, datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.models.notification import Notification
 from app.models.trip import Step, Trip, TripInPost, TripInPostModify, TripInFront
 from app.models.city import City
@@ -136,10 +136,25 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
         "candidates": candidates,
     }
 
+@transactions.atomic()
+async def notify_friends(trip: Trip):
+    try:
+        trip = await Trip.get_or_none(id=trip.id).prefetch_related("departure", "arrival")
+        group = await Group.get_or_none(id=trip.group_id).prefetch_related("friends", "owner")
+        if group is None:
+            raise HTTPException(status_code=404, detail="Group does not exists")
+        notifs = []
+        for friend in group.friends:
+            notifs.append(Notification(action=False, receiver_id=friend.id, type="newTrip", sender_id=group.owner.id, subject="Nouveau trajet privé !",
+                        content=f"{trip.departure.name} -> {trip.arrival.name} {chr(13)+chr(10)} le {trip.date.strftime('%d/%m/%Y')} {chr(13)+chr(10)} Allez voir vos trajets privés", ressourceUrl=f"/trips/{trip.id}"))
+        await Notification.bulk_create(notifs)
+    except Exception as e:
+        print(e)
+
 
 @router.post("/")
 @transactions.atomic()
-async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
+async def create_trips(background_tasks: BackgroundTasks,data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
     if driver.car == False:
         raise HTTPException(
@@ -162,6 +177,8 @@ async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in
     if data.steps is not None:
         for step in data.steps:
             await Step.create(trip=trip, city_id=step.city_id, order=step.order)
+    if data.private is True:
+        background_tasks.add_task(notify_friends, trip)
     return trip
 
 

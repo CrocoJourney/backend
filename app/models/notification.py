@@ -17,10 +17,10 @@ class Notification(Model):
     content = fields.CharField(max_length=512)
     ressourceUrl = fields.CharField(max_length=256)
     action = fields.BooleanField(default=False)
-    buttonUrl1 = fields.CharField(max_length=256)
-    buttonUrl2 = fields.CharField(max_length=256)
-    buttonText1 = fields.CharField(max_length=256)
-    buttonText2 = fields.CharField(max_length=256)
+    buttonUrl1 = fields.CharField(max_length=256, null=True)
+    buttonUrl2 = fields.CharField(max_length=256, null=True)
+    buttonText1 = fields.CharField(max_length=256, null=True)
+    buttonText2 = fields.CharField(max_length=256, null=True)
 
     class Meta:
         table = "notification"
