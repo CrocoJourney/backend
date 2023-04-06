@@ -136,17 +136,19 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
         "candidates": candidates,
     }
 
+
 @transactions.atomic()
 async def notify_friends(trip: Trip):
     try:
         trip = await Trip.get_or_none(id=trip.id).prefetch_related("departure", "arrival")
         group = await Group.get_or_none(id=trip.group_id).prefetch_related("friends", "owner")
         if group is None:
-            raise HTTPException(status_code=404, detail="Group does not exists")
+            raise HTTPException(
+                status_code=404, detail="Group does not exists")
         notifs = []
         for friend in group.friends:
             notifs.append(Notification(action=False, receiver_id=friend.id, type="newTrip", sender_id=group.owner.id, subject="Nouveau trajet privé !",
-                        content=f"{trip.departure.name} -> {trip.arrival.name} {chr(13)+chr(10)} le {trip.date.strftime('%d/%m/%Y')} {chr(13)+chr(10)} Allez voir vos trajets privés", ressourceUrl=f"/trips/{trip.id}"))
+                                       content=f"{trip.departure.name} -> {trip.arrival.name} {chr(13)+chr(10)} le {trip.date.strftime('%d/%m/%Y')} {chr(13)+chr(10)} Allez voir vos trajets privés", ressourceUrl=f"/trips/{trip.id}"))
         await Notification.bulk_create(notifs)
     except Exception as e:
         print(e)
@@ -154,7 +156,7 @@ async def notify_friends(trip: Trip):
 
 @router.post("/")
 @transactions.atomic()
-async def create_trips(background_tasks: BackgroundTasks,data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
+async def create_trips(background_tasks: BackgroundTasks, data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
     if driver.car == False:
         raise HTTPException(
@@ -242,6 +244,9 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.passengers.add(passengerInDB)
     await trip.candidates.remove(passengerInDB)
+    await Notification.create(sender=userInDB, receiver=passengerInDB, action=False,
+                              subject="Trajet", content=f"{userInDB.firstname} {userInDB.lastname} {chr(13)+chr(10)} vient de vous accepter dans :{chr(13)+chr(10)}  {trip.title} {chr(13)+chr(10)} Voici son numero de téléphone : {chr(13)+chr(10)} {userInDB.phonenumber}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "ok"}
 
 
@@ -265,6 +270,9 @@ async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
         raise HTTPException(
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.candidates.remove(passengerInDB)
+    await Notification.create(sender=userInDB, receiver=passengerInDB, action=False,
+                              subject="Refus", content=f"{userInDB.firstname} {userInDB.lastname} {chr(13)+chr(10)} vient de vous refuser dans :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "ok"}
 
 
@@ -360,7 +368,7 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
 @router.delete("/{trip_id}/passengers/{passenger_id}")
 async def cancel_participation(trip_id: int, passenger_id: int, user: User = Depends(get_user_in_token)):
 
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers", "driver")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -373,6 +381,9 @@ async def cancel_participation(trip_id: int, passenger_id: int, user: User = Dep
             status_code=403, detail="Only the passenger can cancel their participation")
 
     await trip.passengers.remove(passenger)
+    await Notification.create(sender=passenger, receiver=trip.driver, action=False,
+                              subject="Annulation", content=f"{passenger.firstname} {passenger.lastname} {chr(13)+chr(10)} vient de quitter votre trajet :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "Passenger successfully removed from the trip"}
 
 
@@ -383,7 +394,7 @@ async def cancel_candidacy(trip_id: int, candidate_id: int, user: User = Depends
         raise HTTPException(
             status_code=403, detail="Only the candidate can cancel their candidacy")
 
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers", "driver")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -392,4 +403,7 @@ async def cancel_candidacy(trip_id: int, candidate_id: int, user: User = Depends
         raise HTTPException(status_code=404, detail="Candidates not found")
 
     await trip.candidates.remove(candidate)
+    await Notification.create(sender=candidate, receiver=trip.driver, action=False,
+                              subject="Annulation", content=f"{candidate.firstname} {candidate.lastname} {chr(13)+chr(10)} ne veut plus candidater pour :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "Candidate successfully removed from the trip"}
