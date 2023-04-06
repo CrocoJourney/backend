@@ -207,7 +207,7 @@ async def join_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)
     if trip.driver_id == user.id:
         raise HTTPException(
             status_code=403, detail="Forbidden this is your trip")
-    if trip.private is True and user.id not in trip.group.friends:
+    if trip.private is True and userInDB not in trip.group.friends:
         raise HTTPException(
             status_code=403, detail="Forbidden this trip is private and you are not in the group")
     if trip.size == len(trip.passengers):
