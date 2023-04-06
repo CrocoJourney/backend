@@ -1,7 +1,7 @@
 from pydantic import parse_obj_as
 from tortoise import transactions
 from datetime import date, timedelta, datetime
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from app.models.notification import Notification
 from app.models.trip import Step, Trip, TripInPost, TripInPostModify, TripInFront
 from app.models.city import City
@@ -18,9 +18,9 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
     # trouve les trajets qui passe par la ville de départ et d'arrivée dans le bon sens ou qui ont directement la ville de départ et d'arrivée
     if date is not None:
         queryDate = """
-            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,private,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE date::date = ($3) and (trip.id IN (
+            WHERE private = false and date::date between ($3) and ($3) + interval '27 hours' and (trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
@@ -42,15 +42,14 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
             )
             OR (departure_id = ($1) AND arrival_id = ($2)));
         """
-
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(queryDate, values=[departure, arrival, date])
         return trips
     else:
         query = """
-            SELECT trip.id as id,driver_id,title,date,size,price,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
+            SELECT trip.id as id,driver_id,title,date,size,price,private,d.code as departure_code,d.name as departure_name,a.code as arrival_code,a.name as arrival_name
             FROM trip inner join city a on a.code = trip.arrival_id inner join city d on d.code = trip.departure_id
-            WHERE trip.id IN (
+            WHERE private = false and  (trip.id IN (
                 SELECT trip_id
                 FROM step
                     INNER JOIN trip ON step.trip_id = trip.id
@@ -70,11 +69,24 @@ async def get_trips(departure: str, arrival: str, date: date = None, user: UserI
                         AND s1.order < s2.order
                 )
             )
-            OR (departure_id = ($1) AND arrival_id = ($2));
+            OR (departure_id = ($1) AND arrival_id = ($2)));
         """
         conn = Tortoise.get_connection("default")
         trips = await conn.execute_query_dict(query, values=[departure, arrival])
         return trips
+
+
+@router.get("/private")
+async def get_user_possible_private_trips(user: UserInToken = Depends(get_user_in_token)):
+    user = await User.get_or_none(id=user.id).prefetch_related("friends")
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    # FIXME: Doit etre fait sans iteration , mais phillip en a besoin rapidement
+    ids = []
+    for friend in user.friends:
+        ids.append(friend.id)
+    trips = await Trip.filter(private=True, group_id__in=ids).prefetch_related("arrival", "departure").values("id", "title", "date", "size", "constraints", "precisions", "price", "private", "departure_id", "departure__name", "arrival_id", "arrival__name", "driver_id", "group_id")
+    return trips
 
 
 @router.get("/me")
@@ -125,9 +137,26 @@ async def get_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token))
     }
 
 
+@transactions.atomic()
+async def notify_friends(trip: Trip):
+    try:
+        trip = await Trip.get_or_none(id=trip.id).prefetch_related("departure", "arrival")
+        group = await Group.get_or_none(id=trip.group_id).prefetch_related("friends", "owner")
+        if group is None:
+            raise HTTPException(
+                status_code=404, detail="Group does not exists")
+        notifs = []
+        for friend in group.friends:
+            notifs.append(Notification(action=False, receiver_id=friend.id, type="newTrip", sender_id=group.owner.id, subject="Nouveau trajet privé !",
+                                       content=f"{trip.departure.name} -> {trip.arrival.name} {chr(13)+chr(10)} le {trip.date.strftime('%d/%m/%Y')} {chr(13)+chr(10)} Allez voir vos trajets privés", ressourceUrl=f"/trips/{trip.id}"))
+        await Notification.bulk_create(notifs)
+    except Exception as e:
+        print(e)
+
+
 @router.post("/")
 @transactions.atomic()
-async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
+async def create_trips(background_tasks: BackgroundTasks, data: TripInPost, user: UserInToken = Depends(get_user_in_token)):
     driver = await User.get_or_none(id=user.id)
     if driver.car == False:
         raise HTTPException(
@@ -150,6 +179,8 @@ async def create_trips(data: TripInPost, user: UserInToken = Depends(get_user_in
     if data.steps is not None:
         for step in data.steps:
             await Step.create(trip=trip, city_id=step.city_id, order=step.order)
+    if data.private is True:
+        background_tasks.add_task(notify_friends, trip)
     return trip
 
 
@@ -178,7 +209,7 @@ async def join_trip(trip_id: int, user: UserInToken = Depends(get_user_in_token)
     if trip.driver_id == user.id:
         raise HTTPException(
             status_code=403, detail="Forbidden this is your trip")
-    if trip.private is True and user.id not in trip.group.friends:
+    if trip.private is True and userInDB not in trip.group.friends:
         raise HTTPException(
             status_code=403, detail="Forbidden this trip is private and you are not in the group")
     if trip.size == len(trip.passengers):
@@ -213,6 +244,9 @@ async def accept_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.passengers.add(passengerInDB)
     await trip.candidates.remove(passengerInDB)
+    await Notification.create(sender=userInDB, receiver=passengerInDB, action=False,
+                              subject="Trajet", content=f"{userInDB.firstname} {userInDB.lastname} {chr(13)+chr(10)} vient de vous accepter dans :{chr(13)+chr(10)}  {trip.title} {chr(13)+chr(10)} Voici son numero de téléphone : {chr(13)+chr(10)} {userInDB.phonenumber}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "ok"}
 
 
@@ -236,6 +270,9 @@ async def refuse_passenger(trip_id: int, passenger_id: int, user: UserInToken = 
         raise HTTPException(
             status_code=404, detail="Passenger doesn't request this trip")
     await trip.candidates.remove(passengerInDB)
+    await Notification.create(sender=userInDB, receiver=passengerInDB, action=False,
+                              subject="Refus", content=f"{userInDB.firstname} {userInDB.lastname} {chr(13)+chr(10)} vient de vous refuser dans :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "ok"}
 
 
@@ -277,7 +314,9 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
             steps.append(
                 Step(trip_id=trip.id, order=s.order, city_id=s.city_id))
         steps = await Step.bulk_create(steps)
-        data.steps.pop()
+        # verif si on a des etapes avant de pop
+        if (len(steps) > 0):
+            data.steps.pop()
 
     # -> Vérification : Si le groupe est marqué comme privé et que le trajet précédent n'est pas déjà privé,
     # On vérifie que l'ID du groupe est renseigné et valide.
@@ -329,7 +368,7 @@ async def change_trip(trip_id: int, data: TripInPostModify, user: UserInToken = 
 @router.delete("/{trip_id}/passengers/{passenger_id}")
 async def cancel_participation(trip_id: int, passenger_id: int, user: User = Depends(get_user_in_token)):
 
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers", "driver")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -342,6 +381,9 @@ async def cancel_participation(trip_id: int, passenger_id: int, user: User = Dep
             status_code=403, detail="Only the passenger can cancel their participation")
 
     await trip.passengers.remove(passenger)
+    await Notification.create(sender=passenger, receiver=trip.driver, action=False,
+                              subject="Annulation", content=f"{passenger.firstname} {passenger.lastname} {chr(13)+chr(10)} vient de quitter votre trajet :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "Passenger successfully removed from the trip"}
 
 
@@ -352,7 +394,7 @@ async def cancel_candidacy(trip_id: int, candidate_id: int, user: User = Depends
         raise HTTPException(
             status_code=403, detail="Only the candidate can cancel their candidacy")
 
-    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers")
+    trip = await Trip.get_or_none(id=trip_id).prefetch_related("candidates", "passengers", "driver")
     if trip is None:
         raise HTTPException(status_code=404, detail="Trip not found")
 
@@ -361,4 +403,7 @@ async def cancel_candidacy(trip_id: int, candidate_id: int, user: User = Depends
         raise HTTPException(status_code=404, detail="Candidates not found")
 
     await trip.candidates.remove(candidate)
+    await Notification.create(sender=candidate, receiver=trip.driver, action=False,
+                              subject="Annulation", content=f"{candidate.firstname} {candidate.lastname} {chr(13)+chr(10)} ne veut plus candidater pour :{chr(13)+chr(10)}  {trip.title}",
+                              ressourceUrl=f"/trips/{trip.id}")
     return {"message": "Candidate successfully removed from the trip"}

@@ -117,7 +117,8 @@ async def delete_user(id: int, user: UserInToken = Depends(get_user_in_token)):
 
 @router.get("/me/notifications")
 async def get_user_notifications(user: UserInToken = Depends(get_user_in_token)):
-    notifications = await Notification.filter(receiver_id=user.id).prefetch_related("sender", "receiver").all()
+    # order by id desc pour avoir les notifications les plus récentes en premier
+    notifications = await Notification.filter(receiver_id=user.id).prefetch_related("sender", "receiver").order_by("-id").all()
     return notifications
 
 
