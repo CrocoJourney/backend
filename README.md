@@ -48,7 +48,39 @@ uvicorn app.main:app --reload --forwarded-allow-ips="*"
 ## Lancement de l'application pour le déploiement ou l'utilisation par l'équipe front-end
 Un fichier docker-compose est fourni pour lancer l'application dans un container docker.
 Pour lancer l'application il faut se placer à la racine du projet et lancer la commande suivante:
+
+<br>
+
+> En fonction de votre version de docker il se peut que la commande soit docker compose au lieu de docker-compose
+
 ```bash
-docker-compose up -d
+docker-compose up -d --build
 ```
-> attention pour fonctionner l'application a besoin de variables d'environnement, elles peuvent être renseignées dans un fichier .env à la racine du projet
+> Docker va télécharger les images nécessaires et attendre que touts les services soient prêts avant de lancer l'application
+
+<br>
+
+> attention pour fonctionner l'application a besoin de variables d'environnement, elles peuvent être renseignées dans un fichier .env à la racine du projet cet exemple de fichier .env est fourni dans le fichier .env.example
+
+> Docker vous signalera si des variables d'environnement sont manquantes
+
+```bash
+POSTGRES_DB=crocojourney
+POSTGRES_USER=croco
+POSTGRES_PASSWORD=crocojourneypassword
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+
+# openssl rand -hex 32
+JWT_SECRET=0c4d7c1505ed2a8958d4037210bad3a1e98a1dccfc2713cc38b71d429ee1d998
+
+REDIS_DB=0
+REDIS_HOST=127.0.0.1
+
+ENV=development
+
+# s'inscrire sur sendinblue.com ou utiliser un serveur smtp ex : smtp.gmail.com
+MAIL_USERNAME=
+MAIL_PASSWORD=
+MAIL_SERVER=smtp-relay.sendinblue.com
+```
